@@ -39,6 +39,11 @@ ScaffoldingReadMe.txt
 # dotenv environment variables file
 .env
 
+# Purchased HTML template — license for public redistribution not yet confirmed.
+# Remove this entry only once SPEC.md's template-license open question is resolved.
+/docs/HTML/
+.DS_Store
+
 # Others
 ~$*
 *~
