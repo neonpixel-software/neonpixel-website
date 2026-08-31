@@ -14,15 +14,15 @@ Full detail (descriptions, acceptance criteria, verification, files) is in `task
 - [x] Task 7: Create the private `neonpixel-theme` repo (already existed)
 - [x] Task 8: Add it to this repo as a git submodule at `theme/`
 - [x] Task 9: Wire Umbraco to load Views/static files from `theme/` (static-file half verified end-to-end; Razor-view half structurally verified, full runtime proof deferred to Task 12 when real content exists)
-- [ ] Task 10: Generate and store the read-only `THEME_REPO_PAT` (blocked: waiting on user to create the fine-grained PAT via GitHub web UI)
+- [x] Task 10: Generate and store the read-only `THEME_REPO_PAT` — fine-grained PAT created by user, added as a GitHub Actions secret; CI re-run confirmed submodule checkout now succeeds
 
 ## Checkpoint: Foundation + Theme Plumbing
-- [ ] `dotnet build` and `dotnet test` succeed from a clean checkout (theme submodule initialized)
-- [ ] `dotnet run` serves the site locally; backoffice reachable, admin account created
-- [ ] Manual `uSync` export/import round-trips successfully
-- [ ] `develop` branch exists; a scratch PR triggers CI (with submodule checkout) and goes green
-- [ ] Deploy workflow file present, valid, checks out the submodule (real run stays blocked on VPS secrets)
-- [ ] `git log`/`git show` on this repo contains zero template file content — only the submodule reference
+- [x] `dotnet build` and `dotnet test` succeed from a clean checkout (theme submodule initialized) — verified locally and via CI on a fresh runner
+- [ ] `dotnet run` serves the site locally; backoffice reachable, admin account created — reachable confirmed, admin account creation is an interactive step still pending
+- [ ] Manual `uSync` export/import round-trips successfully — needs a configured database first (blocked on the admin-account step above)
+- [x] `develop` branch exists; a scratch PR triggers CI (with submodule checkout) and goes green — PR #1, confirmed green after `THEME_REPO_PAT` was added
+- [x] Deploy workflow file present, valid, checks out the submodule (real run stays blocked on VPS secrets, as expected)
+- [x] `git log`/`git show` on this repo contains zero template file content — only the submodule reference — verified
 - [ ] Review with human before proceeding
 
 ## Phase 3: Template Conversion (into the private theme repo)
