@@ -1,0 +1,10 @@
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    // This file intentionally contains no template-derived markup -- it only wires the
+    // real content (which lives in the private theme submodule, per SPEC.md Assumption 17)
+    // into Umbraco's template resolution. See theme/CONTENT-SETUP.md.
+    Layout = "_Layout.cshtml";
+    ViewData["Title"] = string.IsNullOrWhiteSpace(Model.Value<string>("seoTitle")) ? "NeonPixel - Digital Agency" : Model.Value<string>("seoTitle");
+    ViewData["MetaDescription"] = string.IsNullOrWhiteSpace(Model.Value<string>("seoDescription")) ? "NeonPixel is a digital agency crafting bold, considered software, brands and digital experiences." : Model.Value<string>("seoDescription");
+}
+@await Html.PartialAsync("~/Views/HomeContent.cshtml")

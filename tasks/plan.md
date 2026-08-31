@@ -7,7 +7,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 
 ## Architecture Decisions
 - **Umbraco 18 CMS, not hand-rolled EF Core** — content (including the Home page) lives in Umbraco's content tree, edited via the backoffice, not custom DbContext entities. Rationale: explicit user requirement.
-- **uSync for environment sync, not the SQLite file itself** — schema/content move between local dev and production as serialized files in `uSync/` (committed), while `umbraco/Data/*.sqlite` stays environment-local and gitignored. Rationale: avoids shipping a binary database file through git, and avoids merge conflicts on it.
+- **uSync for environment sync, not the SQLite file itself** — schema/content move between local dev and production as serialized files in `src/NeonPixel.Web/uSync/` (committed), while `umbraco/Data/*.sqlite` stays environment-local and gitignored. Rationale: avoids shipping a binary database file through git, and avoids merge conflicts on it.
 - **GitFlow with a single deploy target** — only `main` triggers the deploy job; `develop` and `feature/*` only run CI. Rationale: there's one VPS/production environment; a staging deploy from `develop` is explicitly an open question, not assumed.
 - **Template-derived front-end lives in a private submodule, never copied into this repo** — the purchased template's license forbids redistribution, and this repo is public. A separate private `neonpixel-theme` repo holds the converted Razor/CSS/JS; this repo references it as a git submodule at `theme/` (a commit-hash pointer only) and is configured (`Program.cs`) to load Views and static files directly from `theme/Views` / `theme/wwwroot` at runtime, so the actual template content never enters this repo's git history. Rationale: a submodule pointer is the standard, low-friction way to compose a public repo with private-licensed content, and avoids the maintenance burden of a copy-at-build-time step going stale.
 
@@ -45,7 +45,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 ### Checkpoint: Template Integration
 - [ ] Home page renders through Umbraco and visually matches `docs/HTML/index.html`
 - [ ] Requesting an unmatched URL returns the custom 404 template with a genuine HTTP 404 status
-- [ ] A fresh clone (with `theme/` submodule access) + `dotnet run` (no prior database) reconstructs Home + 404 content/schema purely from committed `uSync/` files
+- [ ] A fresh clone (with `theme/` submodule access) + `dotnet run` (no prior database) reconstructs Home + 404 content/schema purely from committed `src/NeonPixel.Web/uSync/` files
 - [ ] A fresh clone *without* `theme/` submodule access still builds and runs (no front-end presentation, which is correct, not a bug)
 - [ ] `develop` CI is green with template changes merged in
 - [ ] Review with human before proceeding
@@ -85,12 +85,12 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 ---
 
 ### Task 2: Add and configure uSync
-**Description:** Add the `uSync` NuGet package to the Umbraco project and configure it (export/import handlers, `ImportAtStartup` or equivalent) so backoffice changes serialize to a `uSync/` folder and reimport cleanly on a fresh database.
+**Description:** Add the `uSync` NuGet package to the Umbraco project and configure it (export/import handlers, `ImportAtStartup` or equivalent) so backoffice changes serialize to a `src/NeonPixel.Web/uSync/` folder and reimport cleanly on a fresh database.
 
 **Acceptance criteria:**
 - [ ] `uSync` package installed and its backoffice section appears
-- [ ] A manual content/schema change locally produces files under `uSync/`
-- [ ] Deleting the local SQLite db and restarting reconstructs the same content from `uSync/`
+- [ ] A manual content/schema change locally produces files under `src/NeonPixel.Web/uSync/`
+- [ ] Deleting the local SQLite db and restarting reconstructs the same content from `src/NeonPixel.Web/uSync/`
 
 **Verification:**
 - [ ] Build succeeds: `dotnet build`
@@ -101,7 +101,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 **Files likely touched:**
 - `src/NeonPixel.Web/NeonPixel.Web.csproj`
 - `src/NeonPixel.Web/appsettings.json`
-- `uSync/**` (generated)
+- `src/NeonPixel.Web/uSync/**` (generated)
 
 **Estimated scope:** S
 
@@ -147,7 +147,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 ---
 
 ### Task 5: Deploy workflow (publish + SSH deploy + restart, with theme submodule checkout)
-**Description:** Write `.github/workflows/deploy.yml`: on push to `main`, check out this repo plus `theme/` (same submodule auth as Task 4), run build+test (stop if either fails), `dotnet publish`, copy the output — including the resolved theme content it depends on — to the VPS over SSH (rsync/scp) using secrets (`VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_KEY`, deploy path), then restart the systemd service. Exclude the live SQLite db and `umbraco/Data` from whatever gets overwritten; include the committed `uSync/` folder so uSync's startup import picks up any changes.
+**Description:** Write `.github/workflows/deploy.yml`: on push to `main`, check out this repo plus `theme/` (same submodule auth as Task 4), run build+test (stop if either fails), `dotnet publish`, copy the output — including the resolved theme content it depends on — to the VPS over SSH (rsync/scp) using secrets (`VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_KEY`, deploy path), then restart the systemd service. Exclude the live SQLite db and `umbraco/Data` from whatever gets overwritten; include the committed `src/NeonPixel.Web/uSync/` folder so uSync's startup import picks up any changes.
 
 **Acceptance criteria:**
 - [ ] Deploy job only runs after build+test pass, only on `main`
@@ -346,10 +346,10 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 ---
 
 ### Task 14: uSync export of Home + 404, verify clean-clone reconstruction
-**Description:** Export the Home and 404 document types/content via uSync, commit the resulting `uSync/` files (to this repo — content structure is Umbraco/uSync's, not the template's, so no license concern here), and verify a completely fresh clone (no local db, no prior uSync state) reconstructs the same site on `dotnet run`, both with and without `theme/` submodule access.
+**Description:** Export the Home and 404 document types/content via uSync, commit the resulting `src/NeonPixel.Web/uSync/` files (to this repo — content structure is Umbraco/uSync's, not the template's, so no license concern here), and verify a completely fresh clone (no local db, no prior uSync state) reconstructs the same site on `dotnet run`, both with and without `theme/` submodule access.
 
 **Acceptance criteria:**
-- [ ] `uSync/` contains the Home and 404 document type + content definitions
+- [ ] `src/NeonPixel.Web/uSync/` contains the Home and 404 document type + content definitions
 - [ ] A fresh clone with submodule access, after `dotnet run`, shows the same Home/404 content without manual backoffice work
 - [ ] A fresh clone without submodule access still builds/runs (backend only, no presentation — expected)
 - [ ] No secrets or environment-specific values appear in the exported files (per SPEC.md Boundaries)
@@ -360,7 +360,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 **Dependencies:** Task 12, Task 13, Task 2
 
 **Files likely touched:**
-- `uSync/**`
+- `src/NeonPixel.Web/uSync/**`
 
 **Estimated scope:** S
 
