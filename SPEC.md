@@ -118,7 +118,7 @@ Example Razor template for the Home document type:
 - `dotnet build` and `dotnet test` succeed from a clean checkout.
 - `dotnet run` starts the site locally, the Umbraco backoffice at `/umbraco` is reachable, and an admin account can be created on first run.
 - A "Home" document type + template exists and renders content that's editable through the backoffice.
-- A custom 404 page (matching the template's design) is served with a genuine HTTP 404 status for any unmatched route, configured through Umbraco's error-page mechanism rather than hardcoded routing.
+- A custom 404 page (matching the template's design) is served with a genuine HTTP 404 status for any unmatched route, configured through Umbraco's error-page mechanism rather than hardcoded routing. **Verified live**, in both languages, via `Error404Collection` (one entry per culture — config shape confirmed against Umbraco's own generated schema).
 - Umbraco's SQLite database initializes cleanly on first run with no manual DB setup steps.
 - Creating/editing the Home document type and its content locally produces uSync export files under `src/NeonPixel.Web/uSync/` that, when committed and deployed, reproduce the same structure and content on the VPS without ever transferring the `.db` file.
 - A fresh clone + `dotnet run` on a machine with no prior database reconstructs the expected content/schema purely from the committed `src/NeonPixel.Web/uSync/` folder — with the `theme/` submodule checked out; without it, the same fresh clone still builds and runs, just with no front-end presentation, and that's correct behavior, not a bug.
