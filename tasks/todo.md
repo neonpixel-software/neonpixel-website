@@ -6,9 +6,9 @@ Full detail (descriptions, acceptance criteria, verification, files) is in `task
 - [x] Task 1: Verify Umbraco 18 / .NET version compatibility, then scaffold the project
 - [x] Task 2: Add and configure uSync
 - [x] Task 3: Set up GitFlow branch structure
-- [ ] Task 4: CI workflow (build + test, with theme submodule checkout)
-- [ ] Task 5: Deploy workflow (publish + SSH deploy + restart, with theme submodule checkout)
-- [ ] Task 6: VPS deployment runbook
+- [x] Task 4: CI workflow (build + test, with theme submodule checkout) — written, YAML-valid; real run pending `THEME_REPO_PAT`
+- [x] Task 5: Deploy workflow (publish + SSH deploy + restart, with theme submodule checkout) — written, YAML-valid; real run pending VPS secrets (`VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_KEY`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`)
+- [x] Task 6: VPS deployment runbook (`DEPLOYMENT.md`) — deploy path/service name/domain left as placeholders pending Open Questions 3, 7
 
 ## Phase 2: Private Theme Repo Setup (no Phase-1 dependency — can run in parallel)
 - [x] Task 7: Create the private `neonpixel-theme` repo (already existed)
