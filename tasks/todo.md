@@ -3,18 +3,18 @@
 Full detail (descriptions, acceptance criteria, verification, files) is in `tasks/plan.md`. This file tracks completion status.
 
 ## Phase 1: Public-Repo Foundation (no theme dependency — start immediately)
-- [ ] Task 1: Verify Umbraco 18 / .NET version compatibility, then scaffold the project
-- [ ] Task 2: Add and configure uSync
-- [ ] Task 3: Set up GitFlow branch structure
+- [x] Task 1: Verify Umbraco 18 / .NET version compatibility, then scaffold the project
+- [x] Task 2: Add and configure uSync
+- [x] Task 3: Set up GitFlow branch structure
 - [ ] Task 4: CI workflow (build + test, with theme submodule checkout)
 - [ ] Task 5: Deploy workflow (publish + SSH deploy + restart, with theme submodule checkout)
 - [ ] Task 6: VPS deployment runbook
 
 ## Phase 2: Private Theme Repo Setup (no Phase-1 dependency — can run in parallel)
-- [ ] Task 7: Create the private `neonpixel-theme` repo
-- [ ] Task 8: Add it to this repo as a git submodule at `theme/`
-- [ ] Task 9: Wire Umbraco to load Views/static files from `theme/`
-- [ ] Task 10: Generate and store the read-only `THEME_REPO_DEPLOY_KEY`
+- [x] Task 7: Create the private `neonpixel-theme` repo (already existed)
+- [x] Task 8: Add it to this repo as a git submodule at `theme/`
+- [x] Task 9: Wire Umbraco to load Views/static files from `theme/` (static-file half verified end-to-end; Razor-view half structurally verified, full runtime proof deferred to Task 12 when real content exists)
+- [ ] Task 10: Generate and store the read-only `THEME_REPO_PAT` (blocked: waiting on user to create the fine-grained PAT via GitHub web UI)
 
 ## Checkpoint: Foundation + Theme Plumbing
 - [ ] `dotnet build` and `dotnet test` succeed from a clean checkout (theme submodule initialized)

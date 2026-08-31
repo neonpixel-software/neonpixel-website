@@ -25,7 +25,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 - [ ] Task 7: Create the private `neonpixel-theme` repo
 - [ ] Task 8: Add it to this repo as a git submodule at `theme/`
 - [ ] Task 9: Wire Umbraco to load Views/static files from `theme/`
-- [ ] Task 10: Generate and store the read-only `THEME_REPO_DEPLOY_KEY`
+- [ ] Task 10: Generate and store the read-only `THEME_REPO_PAT`
 
 ### Checkpoint: Foundation + Theme Plumbing
 - [ ] `dotnet build` and `dotnet test` succeed from a clean checkout (with `theme/` submodule initialized, even if empty of real content so far)
@@ -108,7 +108,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 ---
 
 ### Task 3: Set up GitFlow branch structure
-**Description:** Create the `develop` branch from `main`. Document (in a short section of `tasks/plan.md` or a repo README note) that branch protection rules for `main`/`develop` (required reviews, required status checks — including path-scoped protection on workflow files, per SPEC.md's `THEME_REPO_DEPLOY_KEY` risk note) are a GitHub repo setting to be configured by the human — not something this task can enforce from the CLI alone.
+**Description:** Create the `develop` branch from `main`. Document (in a short section of `tasks/plan.md` or a repo README note) that branch protection rules for `main`/`develop` (required reviews, required status checks — including path-scoped protection on workflow files, per SPEC.md's `THEME_REPO_PAT` risk note) are a GitHub repo setting to be configured by the human — not something this task can enforce from the CLI alone.
 
 **Acceptance criteria:**
 - [ ] `develop` branch exists and is pushed
@@ -126,18 +126,18 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 ---
 
 ### Task 4: CI workflow (build + test, with theme submodule checkout)
-**Description:** Write `.github/workflows/ci.yml`: on push to `develop` and on pull requests targeting `develop` or `main`, check out this repo plus the `theme/` submodule (`actions/checkout` with `submodules: true` and `ssh-key: ${{ secrets.THEME_REPO_DEPLOY_KEY }}`), then run `dotnet build` then `dotnet test`. No deploy step.
+**Description:** Write `.github/workflows/ci.yml`: on push to `develop` and on pull requests targeting `develop` or `main`, check out this repo plus the `theme/` submodule (`actions/checkout` with `submodules: true` and `token: ${{ secrets.THEME_REPO_PAT }}` — a fine-grained PAT, since `neonpixel-software` has deploy keys disabled org-wide), then run `dotnet build` then `dotnet test`. No deploy step.
 
 **Acceptance criteria:**
 - [ ] Workflow triggers on the specified events only
-- [ ] Submodule checkout succeeds using the read-only deploy key (depends on Task 10)
+- [ ] Submodule checkout succeeds using the read-only PAT (depends on Task 10)
 - [ ] A red build/test fails the check and blocks a PR from looking mergeable
 - [ ] A green build/test passes
 
 **Verification:**
 - [ ] Manual check: open a scratch PR from a `feature/*` branch into `develop`, confirm the workflow runs (including submodule checkout) and reports status
 
-**Dependencies:** Task 1, Task 3, Task 10 (needs the deploy key to exist as a secret)
+**Dependencies:** Task 1, Task 3, Task 10 (needs the PAT to exist as a secret)
 
 **Files likely touched:**
 - `.github/workflows/ci.yml`
@@ -227,37 +227,40 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 
 ---
 
-### Task 9: Wire Umbraco to load Views/static files from `theme/`
-**Description:** Add a small, self-contained addition to `Program.cs`: register `theme/Views` as an additional Razor view location (e.g. via `RazorViewEngineOptions.ViewLocationExpanders` or `AddRazorRuntimeCompilation` with an extra `FileProvider`), and register `theme/wwwroot` as an additional static file source (a second `UseStaticFiles` call with a `PhysicalFileProvider` pointed at that path). Confirm against official Umbraco 18 docs (SPEC.md Open Question 19) that this is the correct extension point before finalizing, since Umbraco's own view/asset conventions may need something more specific.
+### Task 9: Wire Umbraco to load Views/static files from `theme/` — DONE
+**Description:** Added to `Program.cs`: `theme/wwwroot` is registered as an additional static file source via `UseStaticFiles` with a `PhysicalFileProvider`; `theme/Views` is registered via `MvcRazorRuntimeCompilationOptions.FileProviders`. Both are guarded by `Directory.Exists` so a clone without submodule access still builds and runs.
+
+**What was actually found (differs from the original guess):** `RazorViewEngineOptions` has no `FileProviders` member — that lives on `MvcRazorRuntimeCompilationOptions` (`Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation`), which is marked obsolete (`ASPDEPR003`) as a *general* .NET 10 recommendation against runtime compilation in production. However, this project already depends on it regardless of this change: `Umbraco.Cms.DevelopmentMode.Backoffice` (referenced unconditionally in the scaffolded `.csproj`) pulls in that same package, and `RazorCompileOnBuild`/`RazorCompileOnPublish` are set to `false` specifically because Umbraco's `ModelsMode InMemoryAuto` requires runtime compilation to work at all. So this reuses a mechanism the project already needs, rather than introducing a new deprecated dependency — documented with a code comment and a `#pragma warning disable ASPDEPR003` around just that block. **Residual risk, carried into SPEC.md Open Question 19:** if the project ever moves off `ModelsMode InMemoryAuto` or drops the dev-mode package (a plausible production hardening step), this wiring breaks and needs to become an MSBuild-level Razor compile-include of `theme/Views` instead of a runtime file provider.
 
 **Acceptance criteria:**
-- [ ] A `.cshtml` file placed in `theme/Views` renders correctly for a matching Umbraco content node
-- [ ] A static asset placed in `theme/wwwroot` is servable via its expected URL path
-- [ ] No template content was copied into `src/NeonPixel.Web/Views` or `src/NeonPixel.Web/wwwroot` to make this work
+- [x] A static asset placed in `theme/wwwroot` is servable via its expected URL path — verified: a throwaway `theme/wwwroot/wiring-test.txt` returned HTTP 200 with correct content at `/wiring-test.txt`, then removed (never committed to either repo)
+- [ ] A `.cshtml` file placed in `theme/Views` renders correctly for a matching Umbraco content node — not yet verified at runtime (needs a configured database + content, which doesn't exist yet); structurally correct (builds clean, same file-provider mechanism as the static-file half, which did verify). Full proof deferred to Task 12.
+- [x] No template content was copied into `src/NeonPixel.Web/Views` or `src/NeonPixel.Web/wwwroot` to make this work
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build`
-- [ ] Manual check: add a throwaway test view/asset in `theme/`, confirm it renders/loads without being present anywhere in this repo's own tracked files
+- [x] Build succeeds: `dotnet build` (0 warnings, 0 errors, with the pragma in place)
+- [x] Manual check: throwaway test file in `theme/wwwroot` loaded correctly via HTTP; confirmed absent from this repo's and the theme repo's tracked files afterward
 
 **Dependencies:** Task 1, Task 8
 
-**Files likely touched:**
+**Files touched:**
 - `src/NeonPixel.Web/Program.cs`
 
 **Estimated scope:** S
 
 ---
 
-### Task 10: Generate and store the read-only `THEME_REPO_DEPLOY_KEY`
-**Description:** Generate a dedicated SSH deploy key scoped to read-only access on the private `neonpixel-theme` repo (GitHub repo Settings → Deploy keys, "Allow write access" left unchecked). Store the private key as a GitHub Actions secret (`THEME_REPO_DEPLOY_KEY`) on the public `neonpixel-website` repo, for Tasks 4 and 5 to consume.
+### Task 10: Generate and store the read-only `THEME_REPO_PAT`
+**Description:** Originally planned as an SSH deploy key, but `neonpixel-software` has deploy keys disabled org-wide (`deploy_keys_enabled_for_repositories: false`, confirmed via `gh api orgs/neonpixel-software` — a deliberate admin policy, not overridden). Instead: create a fine-grained Personal Access Token at github.com/settings/tokens?type=beta — Resource owner `neonpixel-software`, Repository access restricted to only `neonpixel-theme`, Permissions: Contents → Read-only. This requires the GitHub web UI (no API to mint fine-grained PATs); a human has to do this step. Store the token as a GitHub Actions secret (`THEME_REPO_PAT`) on the public `neonpixel-website` repo, for Tasks 4 and 5 to consume via `actions/checkout`'s `token` input.
 
 **Acceptance criteria:**
-- [ ] Deploy key added to `neonpixel-theme` with read-only access
-- [ ] Corresponding secret `THEME_REPO_DEPLOY_KEY` exists on `neonpixel-website`'s Actions secrets
-- [ ] Key is confirmed read-only (no accidental write access that could let a compromised workflow push to the private theme repo)
+- [ ] Fine-grained PAT created, scoped to only `neonpixel-theme`, Contents: Read-only
+- [ ] Corresponding secret `THEME_REPO_PAT` exists on `neonpixel-website`'s Actions secrets
+- [ ] Token confirmed read-only (no accidental write access that could let a compromised workflow push to the private theme repo)
+- [ ] Token has a set expiration, with a reminder to rotate it before then (fine-grained PATs don't auto-renew)
 
 **Verification:**
-- [ ] Manual check: attempt a checkout using the key in a scratch workflow run, confirm it succeeds for read/clone
+- [ ] Manual check: attempt a checkout using the token in a scratch workflow run, confirm it succeeds for read/clone
 
 **Dependencies:** Task 7
 
@@ -364,7 +367,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 ---
 
 ### Task 15: Cut release, provision VPS, ship to production
-**Description:** Once the Template Integration checkpoint passes and the VPS is provisioned per `DEPLOYMENT.md` (Task 6), cut `release/1.0.0` from `develop`, merge into `main` and `develop`, tag it. The `main` merge triggers the deploy workflow (Task 5) with real secrets configured in GitHub (both `VPS_DEPLOY_KEY` and `THEME_REPO_DEPLOY_KEY`). This is where the human executes the VPS-side prerequisite steps (deploy user, SSH key, nginx, systemd, certbot) — those are infrastructure actions outside this repo's code and are called out here, not automated.
+**Description:** Once the Template Integration checkpoint passes and the VPS is provisioned per `DEPLOYMENT.md` (Task 6), cut `release/1.0.0` from `develop`, merge into `main` and `develop`, tag it. The `main` merge triggers the deploy workflow (Task 5) with real secrets configured in GitHub (both `VPS_DEPLOY_KEY` and `THEME_REPO_PAT`). This is where the human executes the VPS-side prerequisite steps (deploy user, SSH key, nginx, systemd, certbot) — those are infrastructure actions outside this repo's code and are called out here, not automated.
 
 **Acceptance criteria:**
 - [ ] VPS prerequisites from `DEPLOYMENT.md` are complete
@@ -402,7 +405,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | Theme content accidentally lands in the public repo (copy-paste mistake, wrong working directory during conversion, etc.) | High — the entire reason for the submodule architecture is defeated; a public commit can't be fully un-published (forks, caches, history) | Boundaries explicitly forbid it; Checkpoint after Phase 1/2 includes a literal `git log`/`git show` audit of this repo for template content before any template conversion work begins |
-| `THEME_REPO_DEPLOY_KEY` leaks or is over-scoped, exposing the private theme repo via the public repo's workflows | Medium — a public-repo workflow file is itself a public artifact; anyone can read/propose changes to it | Key is read-only at the deploy-key level (not just convention); branch protection should require review on workflow-file changes (SPEC.md CI/CD notes, Task 3) |
+| `THEME_REPO_PAT` leaks or is over-scoped, exposing the private theme repo via the public repo's workflows | Medium — a public-repo workflow file is itself a public artifact; anyone can read/propose changes to it | Key is read-only at the deploy-key level (not just convention); branch protection should require review on workflow-file changes (SPEC.md CI/CD notes, Task 3) |
 | Umbraco 18 / uSync / .NET version facts postdate this assistant's training | Medium — wrong assumption could mean a broken scaffold or incompatible uSync version | Task 1 starts with a live compatibility check against official docs before any code is generated |
 | Umbraco 18's actual Razor view/static-file extension points differ from the `Program.cs` approach assumed in Task 9 | Medium — could mean re-architecting how `theme/` content is loaded | Task 9 explicitly checks official Umbraco 18 docs before finalizing (SPEC.md Open Question 19) |
 | VPS not yet provisioned (deploy user, SSH key, nginx, systemd, .NET runtime) | Medium — deploy workflow can be written but not proven until this exists | Task 6 produces a runbook early; Task 15 is explicitly gated on it being executed |
