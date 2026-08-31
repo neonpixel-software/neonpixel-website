@@ -27,19 +27,23 @@ Full detail (descriptions, acceptance criteria, verification, files) is in `task
 
 ## Phase 3: Template Conversion (into the private theme repo)
 - [x] Task 11: Extract shared layout + static assets from the template into `theme/` — `_Layout.cshtml`, `wwwroot/` (css/js/img/fonts/video) committed to `neonpixel-theme`
-- [x] Task 12: Home document type + template — Razor side done (`HomeContent.cshtml` partial + public stub `Home.cshtml`); **document type itself not yet created** — that's on the user via backoffice, see `theme/CONTENT-SETUP.md`
-- [x] Task 13: Custom 404 page — Razor side done (`Error404Content.cshtml` + stub); **document type + `Error404Collection` config not yet done** — same handoff doc
-- [ ] Task 14: uSync export of Home + 404, verify clean-clone reconstruction — blocked until the user completes Task 12/13's backoffice steps
+- [x] Task 12: Home document type + template — **fully working end-to-end**, verified live: document type created, content published with template assigned, page renders correctly (hero title, footer, assets all confirmed) at `https://localhost:5301/`
+- [x] Task 13: Custom 404 page — document type + template created; **content node + `Error404Collection` config not yet done** (Step 4 of `theme/CONTENT-SETUP.md`) — currently falls back to Umbraco's own generic 404
+- [x] Task 14: uSync export of Home + 404, verify clean-clone reconstruction — **auto-export confirmed**: `home`/`error404` ContentTypes, Templates, and Home's Content all exported to `src/NeonPixel.Web/uSync/v18/` unprompted after backoffice edits; clean-clone reconstruction not yet tested against a fresh checkout
 
 ## Checkpoint: Template Integration
-- [ ] Home page renders through Umbraco, visually matches `docs/HTML/index.html` — **not yet verified end-to-end**; static assets confirmed working, the partial-resolution path is unverified pending real content (see `theme/CONTENT-SETUP.md`)
-- [ ] Unmatched URL returns custom 404 template with genuine HTTP 404 status — same, pending
-- [ ] Fresh clone with `theme/` access reconstructs Home + 404 from committed `src/NeonPixel.Web/uSync/` alone — pending Task 14
+- [x] Home page renders through Umbraco, visually matches `docs/HTML/index.html` — **verified live**, full page renders correctly including editor-entered `heroTitle` content
+- [ ] Unmatched URL returns custom 404 template with genuine HTTP 404 status — pending Step 4 of `theme/CONTENT-SETUP.md` (404 content node not created yet)
+- [ ] Fresh clone with `theme/` access reconstructs Home + 404 from committed `src/NeonPixel.Web/uSync/` alone — uSync files committed, fresh-clone test not yet run
 - [x] Fresh clone without `theme/` access still builds/runs (no presentation — expected) — verified by construction (Directory.Exists guards in Program.cs)
 - [x] `develop` CI green with template changes merged in — verify after next PR merges these commits
-- [ ] Review with human before proceeding — **waiting on user to complete `theme/CONTENT-SETUP.md` and report back**
+- [ ] Review with human before proceeding
+
+## ⚠️ New blocker found during Task 12 testing (see SPEC.md Open Question 19, tasks/plan.md Risks table)
+The `theme/` rendering approach only works with `ASPNETCORE_ENVIRONMENT=Development` set (fine for local dev — the launch profile already sets this — but a hard blocker for the actual VPS deploy, which runs as `Production`). **Must be resolved before Task 15.**
 
 ## Phase 4: Release & Deploy
+- [ ] **Resolve the Development-only rendering blocker above** (new, not in the original task list — needs its own design decision)
 - [ ] Task 15: Cut `release/1.0.0`, provision VPS prerequisites, ship to production
 - [ ] Task 16: Post-deploy verification
 
