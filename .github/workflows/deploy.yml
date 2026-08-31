@@ -1,0 +1,81 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.THEME_REPO_PAT }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release
+
+      - name: Publish
+        run: dotnet publish src/NeonPixel.Web -c Release -o out --no-restore
+
+      - name: Upload publish output
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-output
+          path: out/
+          retention-days: 1
+
+  deploy:
+    needs: build-test-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download publish output
+        uses: actions/download-artifact@v4
+        with:
+          name: publish-output
+          path: out/
+
+      # SPEC.md Open Question 7: VPS_DEPLOY_PATH and the systemd unit name are not yet
+      # decided. This step and the restart step below use secrets rather than hardcoded
+      # values so those can be set once DEPLOYMENT.md (Task 6) settles on them, without
+      # touching this workflow.
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # Excludes: never let a deploy touch the live SQLite db, Umbraco's runtime
+          # Data/Logs, or uploaded media -- those are environment-local, not build output.
+          rsync -az --delete \
+            --exclude 'umbraco/Data/***' \
+            --exclude 'umbraco/Logs/***' \
+            --exclude 'wwwroot/media/***' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            out/ "$VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/"
+
+      - name: Restart service
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SERVICE_NAME: ${{ secrets.VPS_SERVICE_NAME }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$VPS_USER@$VPS_HOST" \
+            "sudo systemctl restart $VPS_SERVICE_NAME"
