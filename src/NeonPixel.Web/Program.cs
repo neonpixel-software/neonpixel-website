@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.FileProviders;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -15,6 +16,19 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // with no front-end presentation, which is expected.
 string themeWwwroot = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "theme", "wwwroot"));
 
+// Production (DEPLOYMENT.md) runs Kestrel on loopback-only HTTP behind an nginx reverse
+// proxy that terminates TLS (see DEPLOYMENT.md's nginx config, which already sends
+// X-Forwarded-Proto). Without this, Kestrel/Umbraco only ever sees plain-HTTP requests,
+// so Request.IsHttps is always false even though the public-facing site is HTTPS -- that
+// breaks Umbraco:CMS:Global:UseHttps (appsettings.Production.json) and would generate
+// http:// links. Left at ASP.NET Core's default KnownNetworks/KnownProxies (loopback
+// only) rather than cleared, since nginx and Kestrel run on the same VPS and Kestrel is
+// never exposed directly -- clearing them would accept forwarded headers from any client.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
 builder.CreateUmbracoBuilder()
     .AddBackOffice()
     .AddWebsite()
@@ -25,6 +39,10 @@ WebApplication app = builder.Build();
 
 
 await app.BootUmbracoAsync();
+
+// Must run before anything that reads Request.Scheme/IsHttps or the client IP -- the
+// static-file/redirect/Umbraco middleware below, in that order.
+app.UseForwardedHeaders();
 
 if (Directory.Exists(themeWwwroot))
 {
