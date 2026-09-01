@@ -25,9 +25,9 @@ Full detail (descriptions, acceptance criteria, verification, files) is in `task
 - [x] `/` → `/en/` redirect verified
 - PR #5 (`feature/dutch-language`) is **open, CI green, not yet merged**
 
-## Phase 4: Release & Deploy — BLOCKED, not started
-- [ ] **Hard blocker, confirmed via live testing, not yet resolved:** the `theme/` rendering approach only works with `ASPNETCORE_ENVIRONMENT=Development` set. Production runs as `Production` and would very likely fail the same way ("No physical template file was found"). Needs a real decision (see `SPEC.md` Open Question 19 / `tasks/plan.md` Risks table) before Task 15 can even be attempted: most likely, moving off `ModelsMode InMemoryAuto` to a source-code-generated mode with real build-time Razor compilation, and switching `theme/Views` from a runtime file provider to an MSBuild-level compile-include.
-- [ ] Task 15: Cut `release/1.0.0`, provision VPS, ship to production — blocked on the above, plus: domain name not decided (SPEC.md Open Question 3), VPS not provisioned, deploy secrets not set (`VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_KEY`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`), branch protection not configured
+## Phase 4: Release & Deploy — blocker resolved, rest not started
+- [x] **Former hard blocker, resolved 2026-09-01:** the `theme/` rendering approach used to only work with `ASPNETCORE_ENVIRONMENT=Development`. Fixed by moving `theme/Views` to an MSBuild-level Razor compile-include (build-time compilation, `ModelsMode: Nothing`, dropped `Umbraco.Cms.DevelopmentMode.Backoffice`/`InMemoryAuto`). Verified end-to-end with a Release build under `ASPNETCORE_ENVIRONMENT=Production`: real Home/404 content in both languages, genuine HTTP 404, static assets resolving; a submodule-less clone still builds clean. See `SPEC.md` Open Question 19. On branch `feature/production-razor-compilation`, not yet merged.
+- [ ] Task 15: Cut `release/1.0.0`, provision VPS, ship to production — no longer blocked on rendering; still needs: domain name not decided (SPEC.md Open Question 3), VPS not provisioned, deploy secrets not set (`VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_KEY`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`), branch protection not configured
 - [ ] Task 16: Post-deploy verification
 
 ## Checkpoint: Complete
