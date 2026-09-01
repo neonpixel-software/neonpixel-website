@@ -2,8 +2,9 @@
 
 Manual, one-time VPS provisioning steps for `neonpixel-website`, plus the templates the automated deploy workflow (`.github/workflows/deploy.yml`) expects to already be in place. This is not automated — a human runs through it once per server. See `SPEC.md` for the architecture this supports.
 
+Domain: `neonpixel.eu` (SPEC.md Open Question 3, resolved). DNS must point at the VPS before step 7 (certbot).
+
 Placeholders used below (replace with real values, then set the matching GitHub Actions secrets):
-- `<domain>` — the site's public domain (SPEC.md Open Question 3, not yet decided)
 - `<deploy-path>` — e.g. `/opt/neonpixel-web` (becomes the `VPS_DEPLOY_PATH` secret)
 - `<service-name>` — e.g. `neonpixel-web` (becomes the `VPS_SERVICE_NAME` secret, systemd unit will be `<service-name>.service`)
 - `<deploy-user>` — a dedicated, non-root user the deploy workflow SSHes in as
@@ -98,12 +99,12 @@ Don't `systemctl start` it yet — there's no published app in `<deploy-path>` u
 
 ## 6. nginx reverse proxy
 
-`/etc/nginx/sites-available/<domain>`:
+`/etc/nginx/sites-available/neonpixel.eu`:
 
 ```nginx
 server {
     listen 80;
-    server_name <domain>;
+    server_name neonpixel.eu;
 
     location / {
         proxy_pass         http://localhost:5000;
@@ -121,18 +122,20 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/<domain> /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/neonpixel.eu /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+The `X-Forwarded-Proto` header above is consumed by ASP.NET Core's Forwarded Headers Middleware, wired up in `Program.cs` — this is what lets Umbraco know the public-facing site is HTTPS even though Kestrel itself only ever speaks plain HTTP on `localhost:5000`. `appsettings.Production.json` (loaded automatically since the systemd unit above sets `ASPNETCORE_ENVIRONMENT=Production`) sets `Umbraco:CMS:Global:UseHttps: true`, `Umbraco:CMS:Runtime:Mode: Production`, and `Umbraco:CMS:WebRouting:UmbracoApplicationUrl: https://neonpixel.eu/` to match. Nothing further to configure on the app side for this — just the nginx/certbot steps below.
+
 ## 7. HTTPS via certbot
 
-Requires `<domain>` DNS already pointed at the VPS (SPEC.md Open Question 3).
+Requires `neonpixel.eu` DNS already pointed at the VPS (SPEC.md Open Question 3).
 
 ```bash
 sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d <domain>
+sudo certbot --nginx -d neonpixel.eu
 ```
 
 Certbot edits the nginx site config in place to add the TLS `server` block and a redirect from port 80. Confirm auto-renewal is set up: `sudo certbot renew --dry-run`.
@@ -146,7 +149,7 @@ sudo systemctl status <service-name>.service
 curl -I http://localhost:5000/
 ```
 
-Then visit `https://<domain>/` and `https://<domain>/umbraco` to confirm the site and backoffice are both reachable, and complete the Umbraco install/admin-account step (see SPEC.md — this is an interactive, one-time step, not automated).
+Then visit `https://neonpixel.eu/` and `https://neonpixel.eu/umbraco` to confirm the site and backoffice are both reachable, and complete the Umbraco install/admin-account step (see SPEC.md — this is an interactive, one-time step, not automated).
 
 ## Prerequisites checklist
 
@@ -157,5 +160,5 @@ Then visit `https://<domain>/` and `https://<domain>/umbraco` to confirm the sit
 - [ ] Deploy directory created and owned by the deploy user
 - [ ] systemd unit installed and enabled (not started — no app there yet)
 - [ ] nginx site config installed, `nginx -t` passes
-- [ ] DNS for `<domain>` points at this VPS
+- [ ] DNS for `neonpixel.eu` points at this VPS
 - [ ] certbot HTTPS issued and auto-renewal confirmed

@@ -373,7 +373,7 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 - [ ] VPS prerequisites from `DEPLOYMENT.md` are complete
 - [ ] Both GitHub Actions secrets (VPS + theme repo) configured
 - [ ] Push to `main` triggers a successful deploy; site reachable on the VPS
-- [ ] Optional, not required by the rendering fix itself: decide whether to explicitly set `Umbraco:CMS:Runtime:Mode: "Production"` in an environment-specific appsettings overlay once the domain is chosen (Open Question 3) — this adds its own prerequisites (HTTPS, `UmbracoApplicationUrl`, Release-mode build validation)
+- [x] Domain decided (`neonpixel.eu`) and `Umbraco:CMS:Runtime:Mode: "Production"` now set explicitly, in a new `appsettings.Production.json` (2026-09-01) — see SPEC.md Open Question 25. Its prerequisites (HTTPS, `UmbracoApplicationUrl`, Release-mode build) are all satisfied; verified end-to-end with a real Production-mode Release build.
 
 **Verification:**
 - [ ] Manual check: visit the deployed site over HTTPS; confirm `/umbraco` backoffice loads on production
@@ -418,6 +418,6 @@ Scaffold an Umbraco 18 CMS site (SQLite persistence, uSync for content/schema sy
 Carried from `SPEC.md` (see that file for the full list) — the ones that actively block a task above:
 - **Which GitHub account/org owns `neonpixel-theme`, and who needs access** (SPEC.md Q17) — blocks Task 7.
 - **VPS deploy path / systemd unit name** (SPEC.md Q7) — needed to finalize Task 5's workflow and Task 6's runbook.
-- **Domain name / DNS** (SPEC.md Q3) — needed for Task 6's nginx/certbot steps and Task 15's execution.
+- ~~Domain name / DNS (SPEC.md Q3)~~ — **Resolved 2026-09-01**: `neonpixel.eu`. DNS pointing at the VPS is still a manual step for the human (`DEPLOYMENT.md`'s prerequisites checklist).
 - **uSync version compatible with Umbraco 18** (SPEC.md Q11) — needed at Task 2.
 - ~~Confirm Umbraco 18's actual view/static-file extension mechanism (SPEC.md Q19)~~ — **Resolved 2026-09-01**, see SPEC.md Q19 and the Risks table above.
