@@ -23,7 +23,14 @@ Full detail (descriptions, acceptance criteria, verification, files) is in `task
 - [x] English + Dutch (`nl-NL`) both shipping, not just architecture-for-later
 - [x] `/en/` and `/nl/` routing verified live, dynamic language switcher verified working both directions
 - [x] `/` → `/en/` redirect verified
-- PR #5 (`feature/dutch-language`) is **open, CI green, not yet merged**
+- Merged via PRs #5 and #6
+
+## New: Theme partial extraction + Contact page (added mid-project, not in the original plan)
+- [x] `theme/Views/Shared/_Layout.cshtml` (loader/nav/header) and `HomeContent.cshtml` (11 `mxd-section` blocks) split into individually reusable partials, matching the template's own section naming — pure file-organization refactor, verified byte-identical rendered output. The plain image-divider component (used twice on Home) is now one shared `_ParallaxDividerSection.cshtml`, parameterized by divider image number.
+- [x] New Contact page, converted from `contact.html` (found outside the repo, copied into the gitignored `docs/HTML/` reference copy) the same way Home/404 were converted, reusing `_ParallaxDividerSection` from Home. Contact form left static/cosmetic — the template's own submit handler posted to a dead `mail.php` PHP stub that can't work here; real submit-to-email handling is an explicit future task, not done.
+- [x] Contact document type (`pageTitle`/`seoTitle`/`seoDescription`, same minimal pattern as Home), content nodes, and templates created via the backoffice per `theme/CONTENT-SETUP.md` Step 5, uSync-exported and committed.
+- [x] **Fully working, verified live in English and Dutch**: `/en/contact` and `/nl/contact` both return real rendered content with a genuine 200 and the entered SEO field values (matching the same domain-binding pattern already used for `/en/404`/`/nl/404`).
+- Design doc: `docs/plans/2026-09-01-theme-partials-and-contact-page-design.md`. Merged via PR #9.
 
 ## Phase 4: Release & Deploy — code-side prep done, ops/secrets remain
 - [x] **Former hard blocker, resolved 2026-09-01:** the `theme/` rendering approach used to only work with `ASPNETCORE_ENVIRONMENT=Development`. Fixed by moving `theme/Views` to an MSBuild-level Razor compile-include (build-time compilation, `ModelsMode: Nothing`, dropped `Umbraco.Cms.DevelopmentMode.Backoffice`/`InMemoryAuto`). Verified end-to-end with a Release build under `ASPNETCORE_ENVIRONMENT=Production`: real Home/404 content in both languages, genuine HTTP 404, static assets resolving; a submodule-less clone still builds clean. See `SPEC.md` Open Question 19. Merged to `develop` via PR #7.
