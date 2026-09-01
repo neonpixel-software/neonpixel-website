@@ -8,8 +8,21 @@
 
   <ItemGroup>
     <PackageReference Include="Umbraco.Cms" />
-    <PackageReference Include="Umbraco.Cms.DevelopmentMode.Backoffice" />
     <PackageReference Include="uSync" />
+  </ItemGroup>
+
+  <!--
+    theme/Views is a sibling directory (git submodule, see Program.cs), not a descendant of this
+    project. Content items outside the project cone don't get view-engine-relative paths for free,
+    so LinkBase places them under a virtual "Views" folder: LinkBase + %(RecursiveDir) produces
+    Link=Views\HomeContent.cshtml, Link=Views\Shared\_Layout.cshtml, etc. — matching what Umbraco's
+    view engine looks up. Guarded by Exists() so a clone without submodule access still builds.
+    theme/Views/_ViewImports.cshtml is excluded: it would collide (same virtual path) with this
+    repo's own Views/_ViewImports.cshtml, which already applies to the whole Views/ tree (Razor's
+    _ViewImports resolution is hierarchical, so the top-level one already covers the linked views).
+  -->
+  <ItemGroup Condition="Exists('..\..\theme\Views')">
+    <Content Include="..\..\theme\Views\**\*.cshtml" Exclude="..\..\theme\Views\_ViewImports.cshtml" LinkBase="Views" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -40,10 +53,5 @@
     <CopyRazorGenerateFilesToPublishDirectory>true</CopyRazorGenerateFilesToPublishDirectory>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <!-- Remove RazorCompileOnBuild and RazorCompileOnPublish when not using ModelsMode InMemoryAuto -->
-    <RazorCompileOnBuild>false</RazorCompileOnBuild>
-    <RazorCompileOnPublish>false</RazorCompileOnPublish>
-  </PropertyGroup>
 
 </Project>

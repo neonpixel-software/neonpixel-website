@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.Extensions.FileProviders;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -7,27 +6,14 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // Razor views and static assets live in a private companion repo (neonpixel-theme),
 // pulled in here as a git submodule at theme/ (a sibling of src/NeonPixel.Web) rather
 // than copied into this repo's own Views/wwwroot. See SPEC.md Assumption 17 and Open
-// Question 19. Guarded with Directory.Exists so a clone without submodule access still
-// builds and runs — just with no front-end presentation, which is expected.
-string themeRoot = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "theme"));
-string themeViews = Path.Combine(themeRoot, "Views");
-string themeWwwroot = Path.Combine(themeRoot, "wwwroot");
-
-if (Directory.Exists(themeViews))
-{
-    // MvcRazorRuntimeCompilationOptions is obsolete (ASPDEPR003) as a general recommendation,
-    // but this project already depends on runtime compilation regardless of this wiring:
-    // Umbraco.Cms.DevelopmentMode.Backoffice (referenced unconditionally in
-    // NeonPixel.Web.csproj) pulls in Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation, and
-    // RazorCompileOnBuild/RazorCompileOnPublish are set to false specifically because
-    // Umbraco's ModelsMode InMemoryAuto requires it. If that models mode or dev-mode package
-    // ever changes (see SPEC.md Open Question 19), this needs to move to an MSBuild-level
-    // Razor compile-include of theme/Views instead.
-#pragma warning disable ASPDEPR003
-    builder.Services.Configure<MvcRazorRuntimeCompilationOptions>(options =>
-        options.FileProviders.Add(new PhysicalFileProvider(themeRoot)));
-#pragma warning restore ASPDEPR003
-}
+// Question 19. theme/Views is compiled at build time via an MSBuild Content/LinkBase
+// include in NeonPixel.Web.csproj (not a runtime file provider — Razor runtime
+// compilation is obsolete in .NET 10 and only worked under ASPNETCORE_ENVIRONMENT=
+// Development, which broke production). theme/wwwroot still needs a runtime static-file
+// wiring since static assets aren't part of Razor compilation. Guarded with
+// Directory.Exists so a clone without submodule access still builds and runs — just
+// with no front-end presentation, which is expected.
+string themeWwwroot = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "theme", "wwwroot"));
 
 builder.CreateUmbracoBuilder()
     .AddBackOffice()
