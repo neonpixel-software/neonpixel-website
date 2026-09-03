@@ -48,7 +48,7 @@ Full detail (descriptions, acceptance criteria, verification, files) is in `task
 
 ## Post-launch: process changes (added after Task 16, not in the original plan)
 - [x] Switched from GitFlow to GitHub Flow (2026-09-03), per user request now that `main` is live in production: `develop` retired (all content already folded into `main` via prior hotfix merges), `feature/*` is now the only branch prefix (`hotfix/*` dropped — an urgent fix is just a fast-tracked `feature/*` PR), tags (`vX.Y.Z`) mark merges that should ship. `ci.yml` retargeted to trigger on PRs into `main` only. The two pre-existing repository rulesets (`main-1`, `main-2`) that also covered `develop` updated to `main` only. `SPEC.md` and `DEPLOYMENT.md` updated throughout.
-- [x] Added a SonarCloud analysis job (`sonarcloud`) to `ci.yml`, per user request. Not yet a required status check on `main` -- needs the one-time SonarCloud account-linking + `SONAR_TOKEN` secret (see `DEPLOYMENT.md`'s "SonarCloud setup" section) before it can actually run; add it to required checks once a real PR shows it passing.
+- [x] SonarCloud, per user request. First added a manual `dotnet-sonarscanner` job to `ci.yml` -- turned out redundant and the only failing check on PR #27, since a **SonarQube Cloud GitHub App** (Automatic Analysis mode) was already installed org-wide (since 2026-08-31) and already posting its own working `SonarCloud Code Analysis` check independently. Removed the manual job entirely; added `SonarCloud Code Analysis` as a required status check on `main` instead (alongside `build-and-test`), confirmed via PR #27 itself.
 
 ## Checkpoint: Complete
 - [x] All Success Criteria in `SPEC.md` met
