@@ -169,10 +169,21 @@ jobs:
             "$VPS_USER@$VPS_HOST" \
             "sudo systemctl restart $VPS_SERVICE_NAME.service"
 
+      # systemctl restart (Type=simple) returns as soon as the process is forked, not once
+      # Kestrel is actually ready -- Umbraco's cold boot (cache seeding, uSync import, JIT)
+      # can take anywhere from a few seconds to over a minute. Retries instead of a single
+      # immediate check, which was seen failing on a real deploy that had, in fact, fully
+      # succeeded a few seconds later.
       - name: Smoke test
         run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" "https://neonpixel.eu/")
-          if [ "$status" != "200" ] && [ "$status" != "302" ]; then
-            echo "Site returned $status, expected 200 or 302 (redirect to /nl/)"
-            exit 1
-          fi
+          for i in $(seq 1 12); do
+            status=$(curl -s -o /dev/null -w "%{http_code}" "https://neonpixel.eu/")
+            if [ "$status" = "200" ] || [ "$status" = "302" ]; then
+              echo "Site returned $status after $i attempt(s)"
+              exit 0
+            fi
+            echo "Attempt $i: site returned $status, retrying in 5s..."
+            sleep 5
+          done
+          echo "Site did not return 200 or 302 (redirect to /nl/) after 12 attempts"
+          exit 1
