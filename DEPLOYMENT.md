@@ -56,14 +56,25 @@ sudo apt-get install -y aspnetcore-runtime-10.0
 
 Verify: `dotnet --list-runtimes` should show `Microsoft.AspNetCore.App 10.0.x`.
 
-## 4. Create the deploy directory
+## 4. Create the deploy directory and the SQLite data directory
 
 ```bash
 sudo mkdir -p <deploy-path>
 sudo chown <deploy-user>:<deploy-user> <deploy-path>
 ```
 
-This is what `deploy.yml`'s rsync step writes into. Umbraco's `umbraco/Data`, `umbraco/Logs`, and `wwwroot/media` are excluded from that rsync (see `deploy.yml`) and persist across deploys — so `<deploy-path>/umbraco/Data` (the live SQLite db) is never touched by a deploy, only created once on first run and left alone after.
+This is what `deploy.yml`'s rsync step writes into — the published app, replaced on every deploy.
+
+The SQLite database lives **outside** it, at a fixed path independent of `<deploy-path>`:
+
+```bash
+sudo mkdir -p /var/lib/neonpixel-website
+sudo chown <deploy-user>:<deploy-user> /var/lib/neonpixel-website
+```
+
+`appsettings.Production.json` points `ConnectionStrings:umbracoDbDSN` at `/var/lib/neonpixel-website/neonpixel.sqlite.db` (overriding the `|DataDirectory|`-relative default in the base `appsettings.json`, which is fine for local dev but would otherwise nest the live db inside `<deploy-path>/umbraco/Data`). Keeping it physically outside the deploy directory means a deploy can never touch it regardless of what the rsync excludes — SPEC.md's preferred option over relying on excludes alone. It's created once, here, and never touched again by `deploy.yml`.
+
+`umbraco/Logs` and `wwwroot/media` are still excluded from the rsync (see `deploy.yml`) and persist inside `<deploy-path>` across deploys, since those aren't part of the build output either.
 
 ## 5. systemd unit
 
@@ -158,6 +169,7 @@ Then visit `https://neonpixel.eu/` and `https://neonpixel.eu/umbraco` to confirm
 - [ ] `THEME_REPO_PAT` secret set (see SPEC.md Assumption 19 / Open Question 19 — separate from the VPS key)
 - [ ] .NET 10 ASP.NET Core runtime installed
 - [ ] Deploy directory created and owned by the deploy user
+- [ ] `/var/lib/neonpixel-website` created and owned by the deploy user (SQLite db lives here, outside the deploy directory)
 - [ ] systemd unit installed and enabled (not started — no app there yet)
 - [ ] nginx site config installed, `nginx -t` passes
 - [ ] DNS for `neonpixel.eu` points at this VPS

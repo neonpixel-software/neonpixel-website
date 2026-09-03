@@ -62,8 +62,11 @@ jobs:
           echo "${{ secrets.VPS_DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          # Excludes: never let a deploy touch the live SQLite db, Umbraco's runtime
-          # Data/Logs, or uploaded media -- those are environment-local, not build output.
+          # The live SQLite db lives outside VPS_DEPLOY_PATH entirely (see DEPLOYMENT.md
+          # step 4 / appsettings.Production.json), so it's never at risk from this rsync.
+          # These excludes are defense in depth for umbraco/Data's other runtime state
+          # (CreatedPackages/TEMP) plus Logs and uploaded media -- environment-local,
+          # not build output, and not safe to delete/overwrite on every deploy.
           rsync -az --delete \
             --exclude 'umbraco/Data/***' \
             --exclude 'umbraco/Logs/***' \
