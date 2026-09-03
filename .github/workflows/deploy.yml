@@ -48,40 +48,79 @@ jobs:
           name: publish-output
           path: out/
 
-      # SPEC.md Open Question 7: VPS_DEPLOY_PATH and the systemd unit name are not yet
-      # decided. This step and the restart step below use secrets rather than hardcoded
-      # values so those can be set once DEPLOYMENT.md (Task 6) settles on them, without
-      # touching this workflow.
-      - name: Deploy to VPS
+      # VPS_KNOWN_HOSTS is a pinned host key (from `ssh-keyscan`, run once by a human --
+      # see DEPLOYMENT.md), not fetched fresh by this workflow, so StrictHostKeyChecking
+      # can stay on instead of trusting whatever key a MITM'd first connection presents.
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Check SSH connectivity
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" \
+            -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$VPS_USER@$VPS_HOST" "echo connected"
+
+      - name: Compute release id
+        id: release
+        run: echo "id=$(date -u +%Y-%m-%dT%H-%M-%S)" >> "$GITHUB_OUTPUT"
+
+      # Each deploy gets its own releases/<id> directory rather than overwriting in
+      # place -- see DEPLOYMENT.md. shared/wwwroot/media is where Umbraco's uploaded
+      # media library actually lives, persisted across every release (it's runtime
+      # state, never part of the publish output); ensuring it exists here is idempotent.
+      - name: Create release directory
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_DEPLOY_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$VPS_SSH_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          # The live SQLite db lives outside VPS_DEPLOY_PATH entirely (see DEPLOYMENT.md
-          # step 4 and the "Write production connection string" step below), so it's
-          # never at risk from this rsync. These excludes are defense in depth for
-          # umbraco/Data's other runtime state (CreatedPackages/TEMP) plus Logs and
-          # uploaded media -- environment-local, not build output, and not safe to
-          # delete/overwrite on every deploy.
-          rsync -az --delete \
-            --exclude 'umbraco/Data/***' \
-            --exclude 'umbraco/Logs/***' \
-            --exclude 'wwwroot/media/***' \
-            -e "ssh -i ~/.ssh/deploy_key -p $VPS_SSH_PORT -o StrictHostKeyChecking=no" \
-            out/ "$VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/"
+          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" \
+            -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "mkdir -p $VPS_DEPLOY_PATH/releases/${{ steps.release.outputs.id }} $VPS_DEPLOY_PATH/shared/wwwroot/media"
+
+      - name: Upload release via rsync
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          rsync -az \
+            -e "ssh -i ~/.ssh/deploy_key -p $VPS_SSH_PORT -o StrictHostKeyChecking=yes -o BatchMode=yes" \
+            out/ "$VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/releases/${{ steps.release.outputs.id }}/"
+
+      # Symlinked in after the upload (not excluded from it -- there's nothing to
+      # exclude, wwwroot/media is never part of the publish output) so every release
+      # serves the same persistent media library instead of starting empty.
+      - name: Symlink shared media into the release
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" \
+            -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "ln -sfn $VPS_DEPLOY_PATH/shared/wwwroot/media $VPS_DEPLOY_PATH/releases/${{ steps.release.outputs.id }}/wwwroot/media"
 
       # Keeps the SQLite db path itself out of the repo entirely (not even in
       # appsettings.Production.json) -- it's resolved from a GitHub Actions secret on
       # every deploy and written to an env file that the systemd unit's EnvironmentFile
-      # directive reads (see DEPLOYMENT.md step 5), overriding ConnectionStrings:umbracoDbDSN
-      # via ASP.NET Core's standard __ env-var config convention. Written to a path the
-      # deploy user already owns (DEPLOYMENT.md step 4), so no sudo is needed here.
+      # directive reads (see DEPLOYMENT.md), overriding ConnectionStrings:umbracoDbDSN
+      # via ASP.NET Core's standard __ env-var config convention. Lives outside
+      # VPS_DEPLOY_PATH entirely (/var/lib/neonpixel-website), so it's untouched by the
+      # releases/current restructuring below.
       - name: Write production connection string
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -89,10 +128,29 @@ jobs:
           VPS_DB_PATH: ${{ secrets.VPS_DB_PATH }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
-          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=no "$VPS_USER@$VPS_HOST" \
+          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=yes -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
             "cat > /var/lib/neonpixel-website/app.env" <<EOF
           ConnectionStrings__umbracoDbDSN=Data Source=$VPS_DB_PATH;Cache=Shared;Foreign Keys=True;Pooling=True
           EOF
+
+      # Atomic: write to a temp name, then rename over "current" -- the systemd unit
+      # (WorkingDirectory/ExecStart both point at VPS_DEPLOY_PATH/current, see
+      # DEPLOYMENT.md) never sees a broken or half-updated symlink. Never prunes the
+      # release "current" points at.
+      - name: Switch current symlink and prune old releases
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" \
+            -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "cd $VPS_DEPLOY_PATH && \
+             ln -sfn releases/${{ steps.release.outputs.id }} current.tmp && \
+             mv -Tf current.tmp current && \
+             ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf"
 
       - name: Restart service
         env:
@@ -101,5 +159,15 @@ jobs:
           VPS_SERVICE_NAME: ${{ secrets.VPS_SERVICE_NAME }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
-          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=no "$VPS_USER@$VPS_HOST" \
+          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" \
+            -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$VPS_USER@$VPS_HOST" \
             "sudo systemctl restart $VPS_SERVICE_NAME"
+
+      - name: Smoke test
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" "https://neonpixel.eu/")
+          if [ "$status" != "200" ] && [ "$status" != "302" ]; then
+            echo "Site returned $status, expected 200 or 302 (redirect to /nl/)"
+            exit 1
+          fi
