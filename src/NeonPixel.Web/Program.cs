@@ -52,16 +52,16 @@ if (Directory.Exists(themeWwwroot))
     });
 }
 
-// SPEC.md Assumption 20: English is served under /en/ from day one (not bare "/"), so
-// adding a second language later doesn't need a breaking URL change. Umbraco's own
-// Culture and Hostnames domain binding may or may not redirect bare "/" on its own
-// (undocumented for a path-only, no-real-hostname setup) -- this is registered before
-// app.UseUmbraco() so it always wins regardless, rather than depending on that behavior.
+// SPEC.md Assumption 20: bare "/" redirects to a fixed default culture rather than
+// depending on Umbraco's own Culture and Hostnames domain-binding behavior for a
+// path-only, no-real-hostname setup (undocumented). Dutch is the default per user
+// request (2026-09-03) -- was English at launch. Registered before app.UseUmbraco()
+// so it always wins regardless.
 app.Use(async (context, next) =>
 {
     if (context.Request.Path == "/")
     {
-        context.Response.Redirect("/en/", permanent: false);
+        context.Response.Redirect("/nl/", permanent: false);
         return;
     }
 
