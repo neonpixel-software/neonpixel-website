@@ -9,6 +9,7 @@ Placeholders used below (replace with real values, then set the matching GitHub 
 - `<service-name>` — e.g. `neonpixel-web` (becomes the `VPS_SERVICE_NAME` secret, systemd unit will be `<service-name>.service`)
 - `<deploy-user>` — a dedicated, non-root user the deploy workflow SSHes in as
 - `<sqlite-db-path>` — e.g. `/var/lib/neonpixel-website/neonpixel.sqlite.db` (becomes the `VPS_DB_PATH` secret; never appears in a committed file — see step 4)
+- `<ssh-port>` — the VPS's SSH port (`22` if unchanged from default; becomes the `VPS_SSH_PORT` secret)
 
 ## 1. Create a dedicated deploy user
 
@@ -37,12 +38,12 @@ ssh-keygen -t ed25519 -f ./neonpixel_vps_deploy_key -N "" -C "neonpixel-website-
 Add the **public** key to the deploy user's `authorized_keys` on the VPS:
 
 ```bash
-ssh-copy-id -i ./neonpixel_vps_deploy_key.pub <deploy-user>@<vps-host>
+ssh-copy-id -p <ssh-port> -i ./neonpixel_vps_deploy_key.pub <deploy-user>@<vps-host>
 ```
 
 Add the **private** key content as the `VPS_DEPLOY_KEY` GitHub Actions secret on `neonpixel-website`, then delete the local private key file — it only needs to exist in the GitHub secret store from this point on.
 
-Set the remaining deploy secrets: `VPS_HOST`, `VPS_USER=<deploy-user>`, `VPS_DEPLOY_PATH=<deploy-path>`, `VPS_SERVICE_NAME=<service-name>`, `VPS_DB_PATH=<sqlite-db-path>`.
+Set the remaining deploy secrets: `VPS_HOST`, `VPS_USER=<deploy-user>`, `VPS_DEPLOY_PATH=<deploy-path>`, `VPS_SERVICE_NAME=<service-name>`, `VPS_DB_PATH=<sqlite-db-path>`, `VPS_SSH_PORT=<ssh-port>`.
 
 ## 3. Install the .NET runtime
 
@@ -169,7 +170,7 @@ Then visit `https://neonpixel.eu/` and `https://neonpixel.eu/umbraco` to confirm
 ## Prerequisites checklist
 
 - [ ] Deploy user created, scoped `sudo` for the restart command only
-- [ ] `VPS_DEPLOY_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`, `VPS_DB_PATH` secrets set on `neonpixel-website`
+- [ ] `VPS_DEPLOY_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`, `VPS_DB_PATH`, `VPS_SSH_PORT` secrets set on `neonpixel-website`
 - [ ] `THEME_REPO_PAT` secret set (see SPEC.md Assumption 19 / Open Question 19 — separate from the VPS key)
 - [ ] .NET 10 ASP.NET Core runtime installed
 - [ ] Deploy directory created and owned by the deploy user
