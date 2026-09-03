@@ -215,6 +215,41 @@ ln -sfn releases/<older-id> current  # repoint at an older one
 sudo systemctl restart <service-name>.service
 ```
 
+## Redirecting additional domains to neonpixel.eu
+
+Repeatable per domain -- e.g. `neonpixel.nl`. Preserves the requested path (`<redirect-domain>/contact` → `https://neonpixel.eu/contact`), not just a blanket redirect to the homepage.
+
+1. Point the domain's DNS `A` record (and `www` if used) at the VPS's IP -- registrar-side, outside this repo's scope. Confirm with `dig +short <redirect-domain>` before continuing.
+
+2. `/etc/nginx/sites-available/<redirect-domain>`:
+
+```nginx
+server {
+    listen 80;
+    server_name <redirect-domain> www.<redirect-domain>;
+
+    location / {
+        return 301 https://neonpixel.eu$request_uri;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/<redirect-domain> /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+3. HTTPS, same as the main domain (SPEC.md/step 7) -- without this, a visitor typing `https://<redirect-domain>` directly hits a certificate error before ever reaching the redirect:
+
+```bash
+sudo certbot --nginx -d <redirect-domain> -d www.<redirect-domain>
+```
+
+Certbot clones the `location` block above into the new HTTPS server block it adds, so the redirect works identically over both HTTP and HTTPS. Confirm auto-renewal: `sudo certbot renew --dry-run`.
+
+4. Verify: `curl -I http://<redirect-domain>/some/path` and `curl -I https://<redirect-domain>/some/path` should both return `301` with `Location: https://neonpixel.eu/some/path`.
+
 ## SonarCloud (CI, not VPS)
 
 Already set up and working: the **SonarQube Cloud** GitHub App is installed on the `neonpixel-software` org (Automatic Analysis mode). It hooks into PR events directly and posts its own `SonarCloud Code Analysis` status check — no `SONAR_TOKEN`, no scanner step, no `ci.yml` job needed on this repo's side at all. Confirmed working live on PR #27.
