@@ -91,6 +91,16 @@ sudo chown <deploy-user>:<deploy-user> <sqlite-data-dir>
 
 This directory serves two purposes: it's where `<deploy-user>` creates the actual `.db` file on first run (at `<sqlite-db-path>`), and it's where `deploy.yml`'s "Write production connection string" step writes the env file on every deploy (at `<env-file-path>`), resolving `VPS_DB_PATH` fresh each time (no `sudo` needed, since `<deploy-user>` owns this directory). The systemd unit's `EnvironmentFile` directive (step 5) loads that file as `ConnectionStrings__umbracoDbDSN` — ASP.NET Core's standard double-underscore env-var override of the `|DataDirectory|`-relative default in the base `appsettings.json` (that default is fine for local dev; it would otherwise nest the live db inside a release directory in production). Keeping both physically outside `<deploy-path>` means a deploy can never touch them, no matter how the releases/current structure inside `<deploy-path>` changes — and keeping their exact paths out of every committed file means the production filesystem layout is never visible in the (public) repo.
 
+**Pre-seed an empty file at `<sqlite-db-path>` before the very first deploy ever runs on a new server:**
+
+```bash
+sudo -u <deploy-user> sqlite3 <sqlite-db-path> "VACUUM;"
+```
+
+(or the same thing via Python if `sqlite3` isn't installed: `sudo -u <deploy-user> python3 -c "import sqlite3; sqlite3.connect('<sqlite-db-path>').close()"`)
+
+Umbraco's own "is the database available" check deliberately opens the file **read-only**, specifically so a routine health check never has the side effect of creating one. On a path with no file yet, that means the check reports "unavailable" and retries forever — it will never create the file itself, no matter how long you wait, and the site gets stuck on a "Boot failed" page indefinitely. This isn't a permissions problem or anything `deploy.yml` can fix; it only needs to happen once, ever, per server (an existing file from any prior deploy is enough — this step is skippable on every deploy after the very first).
+
 ## 5. systemd unit
 
 `/etc/systemd/system/<service-name>.service`:
@@ -213,6 +223,7 @@ sudo systemctl restart <service-name>.service
 - [ ] .NET 10 ASP.NET Core runtime installed
 - [ ] `<deploy-path>/releases` and `<deploy-path>/shared/wwwroot/media` created, and `<deploy-path>` **recursively** owned by the deploy user (not just the top-level directory — see step 4's ownership note)
 - [ ] `<sqlite-data-dir>` created and owned by the deploy user (SQLite db and the connection-string env file both live here, outside the deploy directory)
+- [ ] Empty file pre-seeded at `<sqlite-db-path>` (first-ever deploy on this server only — see step 4; otherwise the site gets stuck reporting the database unavailable forever)
 - [ ] systemd unit installed and enabled (not started — no app there yet), `WorkingDirectory`/`ExecStart` pointing at `<deploy-path>/current`
 - [ ] nginx site config installed, `nginx -t` passes
 - [ ] DNS for `neonpixel.eu` points at this VPS
