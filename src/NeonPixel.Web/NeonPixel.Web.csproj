@@ -25,6 +25,23 @@
     <Content Include="..\..\theme\Views\**\*.cshtml" Exclude="..\..\theme\Views\_ViewImports.cshtml" LinkBase="Views" />
   </ItemGroup>
 
+  <!--
+    Same reasoning and mechanism as theme/Views above, for theme/wwwroot's static assets
+    (CSS/JS/images/fonts/video). These used to be served via a runtime PhysicalFileProvider
+    in Program.cs pointing at a path computed relative to ContentRootPath — that only ever
+    resolved correctly in local dev, where theme/ is a sibling of this project in the same
+    repo checkout. In production the published app has no such sibling directory at all, so
+    every theme asset request silently fell through to Umbraco's own routing (a real bug,
+    only caught after the first live deploy — browsers blocked the response as a MIME-type
+    mismatch under X-Content-Type-Options: nosniff). LinkBase="wwwroot" places these files
+    at their normal web-root-relative paths in the publish output (e.g. wwwroot/css/main.css),
+    served automatically by ASP.NET Core's default static-file handling — identically in
+    local dev and production, no runtime path computation needed.
+  -->
+  <ItemGroup Condition="Exists('..\..\theme\wwwroot')">
+    <Content Include="..\..\theme\wwwroot\**\*" LinkBase="wwwroot" />
+  </ItemGroup>
+
   <PropertyGroup>
     <!--
       Opt-in to app-local ICU to ensure consistent globalization APIs across different platforms.
