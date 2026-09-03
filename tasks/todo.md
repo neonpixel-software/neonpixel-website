@@ -46,6 +46,9 @@ Full detail (descriptions, acceptance criteria, verification, files) is in `task
 - [x] Task 15: `release/1.0.0` live in production -- `https://neonpixel.eu/` reachable, Umbraco backoffice install wizard completed, admin account created. Six real issues found and fixed along the way (all above): releases/current ownership, external SQLite dir missing, sudoers `.service` suffix mismatch, the read-only-availability-check first-boot gotcha, theme/wwwroot never resolving in production, and the smoke test's cold-boot timing race.
 - [ ] Task 16: Post-deploy verification -- admin login/backoffice access confirmed working during setup, but the full `SPEC.md` Success Criteria pass (HTTPS cert, 404 page, both languages, static assets loading correctly, a second deploy working cleanly) not yet run
 
+## Post-launch: process changes (added after Task 16, not in the original plan)
+- [x] Dependabot configured (2026-09-03), per user request: daily version-update checks at midnight UTC for both `nuget` (`src/NeonPixel.Web`) and `github-actions` ecosystems (`.github/dependabot.yml`). Vulnerability alerts (Dependabot security scanning) also enabled repo-wide via the API -- were off entirely before this.
+
 ## Checkpoint: Complete
 - [ ] All Success Criteria in `SPEC.md` met
 - [ ] Production site reachable over HTTPS, backoffice usable, 404 page working
