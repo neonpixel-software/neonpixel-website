@@ -6,5 +6,6 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
     ViewData["Title"] = string.IsNullOrWhiteSpace(Model.Value<string>("seoTitle")) ? "NeonPixel - Contact" : Model.Value<string>("seoTitle");
     ViewData["MetaDescription"] = string.IsNullOrWhiteSpace(Model.Value<string>("seoDescription")) ? "Get in touch with NeonPixel -- we'd love to hear about your project." : Model.Value<string>("seoDescription");
+    ViewData["IsInnerPage"] = true;
 }
 @await Html.PartialAsync("~/Views/ContactContent.cshtml")
