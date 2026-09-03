@@ -114,22 +114,23 @@ jobs:
             "$VPS_USER@$VPS_HOST" \
             "ln -sfn $VPS_DEPLOY_PATH/shared/wwwroot/media $VPS_DEPLOY_PATH/releases/${{ steps.release.outputs.id }}/wwwroot/media"
 
-      # Keeps the SQLite db path itself out of the repo entirely (not even in
-      # appsettings.Production.json) -- it's resolved from a GitHub Actions secret on
-      # every deploy and written to an env file that the systemd unit's EnvironmentFile
-      # directive reads (see DEPLOYMENT.md), overriding ConnectionStrings:umbracoDbDSN
+      # Keeps both the SQLite db path AND the env file's own location out of the repo
+      # entirely (not even in appsettings.Production.json) -- resolved from GitHub
+      # Actions secrets on every deploy. The systemd unit's EnvironmentFile directive
+      # (see DEPLOYMENT.md) reads this file, overriding ConnectionStrings:umbracoDbDSN
       # via ASP.NET Core's standard __ env-var config convention. Lives outside
-      # VPS_DEPLOY_PATH entirely (/var/lib/neonpixel-website), so it's untouched by the
-      # releases/current restructuring below.
+      # VPS_DEPLOY_PATH entirely, so it's untouched by the releases/current
+      # restructuring below.
       - name: Write production connection string
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_DB_PATH: ${{ secrets.VPS_DB_PATH }}
+          VPS_ENV_FILE: ${{ secrets.VPS_ENV_FILE }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
         run: |
           ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=yes -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
-            "cat > /var/lib/neonpixel-website/app.env" <<EOF
+            "cat > $VPS_ENV_FILE" <<EOF
           ConnectionStrings__umbracoDbDSN=Data Source=$VPS_DB_PATH;Cache=Shared;Foreign Keys=True;Pooling=True
           EOF
 
