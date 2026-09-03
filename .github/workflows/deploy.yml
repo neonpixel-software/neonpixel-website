@@ -63,16 +63,34 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           # The live SQLite db lives outside VPS_DEPLOY_PATH entirely (see DEPLOYMENT.md
-          # step 4 / appsettings.Production.json), so it's never at risk from this rsync.
-          # These excludes are defense in depth for umbraco/Data's other runtime state
-          # (CreatedPackages/TEMP) plus Logs and uploaded media -- environment-local,
-          # not build output, and not safe to delete/overwrite on every deploy.
+          # step 4 and the "Write production connection string" step below), so it's
+          # never at risk from this rsync. These excludes are defense in depth for
+          # umbraco/Data's other runtime state (CreatedPackages/TEMP) plus Logs and
+          # uploaded media -- environment-local, not build output, and not safe to
+          # delete/overwrite on every deploy.
           rsync -az --delete \
             --exclude 'umbraco/Data/***' \
             --exclude 'umbraco/Logs/***' \
             --exclude 'wwwroot/media/***' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             out/ "$VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/"
+
+      # Keeps the SQLite db path itself out of the repo entirely (not even in
+      # appsettings.Production.json) -- it's resolved from a GitHub Actions secret on
+      # every deploy and written to an env file that the systemd unit's EnvironmentFile
+      # directive reads (see DEPLOYMENT.md step 5), overriding ConnectionStrings:umbracoDbDSN
+      # via ASP.NET Core's standard __ env-var config convention. Written to a path the
+      # deploy user already owns (DEPLOYMENT.md step 4), so no sudo is needed here.
+      - name: Write production connection string
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DB_PATH: ${{ secrets.VPS_DB_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$VPS_USER@$VPS_HOST" \
+            "cat > /var/lib/neonpixel-website/app.env" <<EOF
+          ConnectionStrings__umbracoDbDSN=Data Source=$VPS_DB_PATH;Cache=Shared;Foreign Keys=True;Pooling=True
+          EOF
 
       - name: Restart service
         env:

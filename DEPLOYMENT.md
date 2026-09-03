@@ -8,6 +8,7 @@ Placeholders used below (replace with real values, then set the matching GitHub 
 - `<deploy-path>` — e.g. `/opt/neonpixel-web` (becomes the `VPS_DEPLOY_PATH` secret)
 - `<service-name>` — e.g. `neonpixel-web` (becomes the `VPS_SERVICE_NAME` secret, systemd unit will be `<service-name>.service`)
 - `<deploy-user>` — a dedicated, non-root user the deploy workflow SSHes in as
+- `<sqlite-db-path>` — e.g. `/var/lib/neonpixel-website/neonpixel.sqlite.db` (becomes the `VPS_DB_PATH` secret; never appears in a committed file — see step 4)
 
 ## 1. Create a dedicated deploy user
 
@@ -41,7 +42,7 @@ ssh-copy-id -i ./neonpixel_vps_deploy_key.pub <deploy-user>@<vps-host>
 
 Add the **private** key content as the `VPS_DEPLOY_KEY` GitHub Actions secret on `neonpixel-website`, then delete the local private key file — it only needs to exist in the GitHub secret store from this point on.
 
-Set the remaining deploy secrets: `VPS_HOST`, `VPS_USER=<deploy-user>`, `VPS_DEPLOY_PATH=<deploy-path>`, `VPS_SERVICE_NAME=<service-name>`.
+Set the remaining deploy secrets: `VPS_HOST`, `VPS_USER=<deploy-user>`, `VPS_DEPLOY_PATH=<deploy-path>`, `VPS_SERVICE_NAME=<service-name>`, `VPS_DB_PATH=<sqlite-db-path>`.
 
 ## 3. Install the .NET runtime
 
@@ -65,14 +66,14 @@ sudo chown <deploy-user>:<deploy-user> <deploy-path>
 
 This is what `deploy.yml`'s rsync step writes into — the published app, replaced on every deploy.
 
-The SQLite database lives **outside** it, at a fixed path independent of `<deploy-path>`:
+The SQLite database lives **outside** it, at a fixed path independent of `<deploy-path>` — and that exact path is never committed to the repo, only set as the `VPS_DB_PATH` secret (step 2), e.g. `/var/lib/neonpixel-website/neonpixel.sqlite.db`:
 
 ```bash
 sudo mkdir -p /var/lib/neonpixel-website
 sudo chown <deploy-user>:<deploy-user> /var/lib/neonpixel-website
 ```
 
-`appsettings.Production.json` points `ConnectionStrings:umbracoDbDSN` at `/var/lib/neonpixel-website/neonpixel.sqlite.db` (overriding the `|DataDirectory|`-relative default in the base `appsettings.json`, which is fine for local dev but would otherwise nest the live db inside `<deploy-path>/umbraco/Data`). Keeping it physically outside the deploy directory means a deploy can never touch it regardless of what the rsync excludes — SPEC.md's preferred option over relying on excludes alone. It's created once, here, and never touched again by `deploy.yml`.
+`/var/lib/neonpixel-website` itself is fixed (it's infrastructure wiring baked into `deploy.yml` and the systemd unit below, not sensitive) and serves two purposes: it's where `<deploy-user>` creates the actual `.db` file on first run (assuming `VPS_DB_PATH` is set to somewhere under it, as above — it can point anywhere `<deploy-user>` can write, this is just the recommended default), and it's where `deploy.yml`'s "Write production connection string" step writes `app.env` on every deploy, resolving `VPS_DB_PATH` fresh each time (no `sudo` needed, since `<deploy-user>` owns this directory). The systemd unit's `EnvironmentFile` directive (step 5) loads that file as `ConnectionStrings__umbracoDbDSN` — ASP.NET Core's standard double-underscore env-var override of the `|DataDirectory|`-relative default in the base `appsettings.json` (that default is fine for local dev; it would otherwise nest the live db inside `<deploy-path>/umbraco/Data` in production). Keeping the db physically outside the deploy directory means a deploy can never touch it regardless of what the rsync excludes — SPEC.md's preferred option over relying on excludes alone — and keeping its exact path in a GitHub Actions secret rather than `appsettings.Production.json` means the production filesystem layout is never visible in the (public) repo.
 
 `umbraco/Logs` and `wwwroot/media` are still excluded from the rsync (see `deploy.yml`) and persist inside `<deploy-path>` across deploys, since those aren't part of the build output either.
 
@@ -96,6 +97,7 @@ KillSignal=SIGINT
 SyslogIdentifier=<service-name>
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://localhost:5000
+EnvironmentFile=-/var/lib/neonpixel-website/app.env
 
 [Install]
 WantedBy=multi-user.target
@@ -105,6 +107,8 @@ WantedBy=multi-user.target
 sudo systemctl daemon-reload
 sudo systemctl enable <service-name>.service
 ```
+
+The leading `-` on `EnvironmentFile` makes it optional, so the unit doesn't fail to start if `app.env` doesn't exist yet — it's written by `deploy.yml` itself (step 4), before the first deploy has run.
 
 Don't `systemctl start` it yet — there's no published app in `<deploy-path>` until the first deploy runs.
 
@@ -165,7 +169,7 @@ Then visit `https://neonpixel.eu/` and `https://neonpixel.eu/umbraco` to confirm
 ## Prerequisites checklist
 
 - [ ] Deploy user created, scoped `sudo` for the restart command only
-- [ ] `VPS_DEPLOY_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME` secrets set on `neonpixel-website`
+- [ ] `VPS_DEPLOY_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`, `VPS_DB_PATH` secrets set on `neonpixel-website`
 - [ ] `THEME_REPO_PAT` secret set (see SPEC.md Assumption 19 / Open Question 19 — separate from the VPS key)
 - [ ] .NET 10 ASP.NET Core runtime installed
 - [ ] Deploy directory created and owned by the deploy user
