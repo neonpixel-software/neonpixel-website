@@ -1,0 +1,10 @@
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    // This file intentionally contains no template-derived markup -- see Home.cshtml's
+    // comment and theme/CONTENT-SETUP.md.
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = "NeonPixel - Page Not Found";
+    ViewData["MetaDescription"] = "The page you're looking for doesn't exist.";
+    ViewData["ShowFooter"] = false;
+}
+@await Html.PartialAsync("~/Views/Error404Content.cshtml")

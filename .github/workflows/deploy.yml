@@ -1,0 +1,105 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.THEME_REPO_PAT }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release
+
+      - name: Publish
+        run: dotnet publish src/NeonPixel.Web -c Release -o out --no-restore
+
+      - name: Upload publish output
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-output
+          path: out/
+          retention-days: 1
+
+  deploy:
+    needs: build-test-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download publish output
+        uses: actions/download-artifact@v4
+        with:
+          name: publish-output
+          path: out/
+
+      # SPEC.md Open Question 7: VPS_DEPLOY_PATH and the systemd unit name are not yet
+      # decided. This step and the restart step below use secrets rather than hardcoded
+      # values so those can be set once DEPLOYMENT.md (Task 6) settles on them, without
+      # touching this workflow.
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$VPS_SSH_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # The live SQLite db lives outside VPS_DEPLOY_PATH entirely (see DEPLOYMENT.md
+          # step 4 and the "Write production connection string" step below), so it's
+          # never at risk from this rsync. These excludes are defense in depth for
+          # umbraco/Data's other runtime state (CreatedPackages/TEMP) plus Logs and
+          # uploaded media -- environment-local, not build output, and not safe to
+          # delete/overwrite on every deploy.
+          rsync -az --delete \
+            --exclude 'umbraco/Data/***' \
+            --exclude 'umbraco/Logs/***' \
+            --exclude 'wwwroot/media/***' \
+            -e "ssh -i ~/.ssh/deploy_key -p $VPS_SSH_PORT -o StrictHostKeyChecking=no" \
+            out/ "$VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/"
+
+      # Keeps the SQLite db path itself out of the repo entirely (not even in
+      # appsettings.Production.json) -- it's resolved from a GitHub Actions secret on
+      # every deploy and written to an env file that the systemd unit's EnvironmentFile
+      # directive reads (see DEPLOYMENT.md step 5), overriding ConnectionStrings:umbracoDbDSN
+      # via ASP.NET Core's standard __ env-var config convention. Written to a path the
+      # deploy user already owns (DEPLOYMENT.md step 4), so no sudo is needed here.
+      - name: Write production connection string
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DB_PATH: ${{ secrets.VPS_DB_PATH }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=no "$VPS_USER@$VPS_HOST" \
+            "cat > /var/lib/neonpixel-website/app.env" <<EOF
+          ConnectionStrings__umbracoDbDSN=Data Source=$VPS_DB_PATH;Cache=Shared;Foreign Keys=True;Pooling=True
+          EOF
+
+      - name: Restart service
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SERVICE_NAME: ${{ secrets.VPS_SERVICE_NAME }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" -o StrictHostKeyChecking=no "$VPS_USER@$VPS_HOST" \
+            "sudo systemctl restart $VPS_SERVICE_NAME"
