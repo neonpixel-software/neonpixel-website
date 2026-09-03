@@ -215,11 +215,20 @@ ln -sfn releases/<older-id> current  # repoint at an older one
 sudo systemctl restart <service-name>.service
 ```
 
+## SonarCloud (CI, not VPS)
+
+Already set up and working: the **SonarQube Cloud** GitHub App is installed on the `neonpixel-software` org (Automatic Analysis mode). It hooks into PR events directly and posts its own `SonarCloud Code Analysis` status check — no `SONAR_TOKEN`, no scanner step, no `ci.yml` job needed on this repo's side at all. Confirmed working live on PR #27.
+
+`SonarCloud Code Analysis` is a required status check on `main` (added 2026-09-03, once PR #27 showed it passing).
+
+If the GitHub App integration is ever removed and needs re-adding: install it from [sonarcloud.io](https://sonarcloud.io) → the org's GitHub App settings, or `github.com/organizations/neonpixel-software/settings/installations`.
+
 ## Prerequisites checklist
 
 - [ ] Deploy user created, scoped `sudo` for the restart command only
 - [ ] `VPS_DEPLOY_KEY`, `VPS_KNOWN_HOSTS`, `VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`, `VPS_DB_PATH`, `VPS_ENV_FILE`, `VPS_SSH_PORT` secrets set on `neonpixel-website`
 - [ ] `THEME_REPO_PAT` secret set (see SPEC.md Assumption 19 / Open Question 19 — separate from the VPS key)
+- [x] SonarCloud GitHub App installed and `SonarCloud Code Analysis` required on `main` (see "SonarCloud" above)
 - [ ] .NET 10 ASP.NET Core runtime installed
 - [ ] `<deploy-path>/releases` and `<deploy-path>/shared/wwwroot/media` created, and `<deploy-path>` **recursively** owned by the deploy user (not just the top-level directory — see step 4's ownership note)
 - [ ] `<sqlite-data-dir>` created and owned by the deploy user (SQLite db and the connection-string env file both live here, outside the deploy directory)

@@ -1,10 +1,15 @@
 name: CI
 
+# GitHub Flow: main is the only long-lived branch. CI runs on every PR targeting it
+# (feature/* or otherwise) -- there's no develop to also trigger on. See SPEC.md.
+#
+# SonarCloud analysis runs separately, via its own GitHub App (Automatic Analysis
+# mode) rather than a job here -- it hooks into PR events directly and posts its own
+# "SonarCloud Code Analysis" status check, no SONAR_TOKEN or scanner step needed. See
+# DEPLOYMENT.md's "SonarCloud" section.
 on:
-  push:
-    branches: [develop]
   pull_request:
-    branches: [develop, main]
+    branches: [main]
 
 jobs:
   build-and-test:
