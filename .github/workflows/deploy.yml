@@ -51,12 +51,20 @@ jobs:
       # VPS_KNOWN_HOSTS is a pinned host key (from `ssh-keyscan`, run once by a human --
       # see DEPLOYMENT.md), not fetched fresh by this workflow, so StrictHostKeyChecking
       # can stay on instead of trusting whatever key a MITM'd first connection presents.
+      # Secrets are routed through env: rather than expanded directly into the run
+      # script (SonarCloud githubactions:S7636) -- keeps the literal secret value out
+      # of the script text itself, so it can't break shell quoting/syntax if it ever
+      # contains special characters, matching how every other step in this file
+      # already handles secrets.
       - name: Set up SSH
+        env:
+          VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          echo "$VPS_DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
 
       - name: Check SSH connectivity
         env:
