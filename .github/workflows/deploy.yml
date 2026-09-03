@@ -153,6 +153,10 @@ jobs:
              mv -Tf current.tmp current && \
              ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf"
 
+      # VPS_SERVICE_NAME is the bare unit name (see DEPLOYMENT.md), but the sudoers
+      # NOPASSWD grant is for the exact command "systemctl restart <name>.service" --
+      # sudoers matches the full argument list literally, so the .service suffix here
+      # isn't cosmetic, it's required for this to match and skip the password prompt.
       - name: Restart service
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -163,7 +167,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" \
             -o StrictHostKeyChecking=yes -o BatchMode=yes \
             "$VPS_USER@$VPS_HOST" \
-            "sudo systemctl restart $VPS_SERVICE_NAME"
+            "sudo systemctl restart $VPS_SERVICE_NAME.service"
 
       - name: Smoke test
         run: |
