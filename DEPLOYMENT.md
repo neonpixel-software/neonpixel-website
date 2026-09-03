@@ -215,11 +215,22 @@ ln -sfn releases/<older-id> current  # repoint at an older one
 sudo systemctl restart <service-name>.service
 ```
 
+## SonarCloud setup (CI, not VPS)
+
+`.github/workflows/ci.yml`'s `sonarcloud` job needs a one-time account-linking step this repo's own settings can't do:
+
+1. Sign in at [sonarcloud.io](https://sonarcloud.io) with the GitHub account/org that owns `neonpixel-software`, and import `neonpixel-website` as a new project (free for public repos).
+2. Note the **Organization Key** and **Project Key** SonarCloud assigns — the workflow currently assumes `neonpixel-software` and `neonpixel-software_neonpixel-website` (SonarCloud's default when importing from GitHub). If yours differ, update the `/o:` and `/k:` values in `ci.yml`'s `sonarcloud` job to match.
+3. Generate a token (My Account → Security → Generate Token) and add it as the `SONAR_TOKEN` GitHub Actions secret on `neonpixel-website`.
+4. Open a scratch PR to confirm the `sonarcloud` job actually runs and reports a result (not a token/config error).
+5. Once confirmed working, add `SonarCloud Code Analysis` (or whatever the check's exact name shows as) to `main`'s required status checks — it's deliberately **not** required yet, so an unconfigured token doesn't block every PR before this setup is done.
+
 ## Prerequisites checklist
 
 - [ ] Deploy user created, scoped `sudo` for the restart command only
 - [ ] `VPS_DEPLOY_KEY`, `VPS_KNOWN_HOSTS`, `VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`, `VPS_DB_PATH`, `VPS_ENV_FILE`, `VPS_SSH_PORT` secrets set on `neonpixel-website`
 - [ ] `THEME_REPO_PAT` secret set (see SPEC.md Assumption 19 / Open Question 19 — separate from the VPS key)
+- [ ] SonarCloud project linked and `SONAR_TOKEN` secret set (see "SonarCloud setup" above); `sonarcloud` CI job confirmed passing on a real PR before adding it as a required status check
 - [ ] .NET 10 ASP.NET Core runtime installed
 - [ ] `<deploy-path>/releases` and `<deploy-path>/shared/wwwroot/media` created, and `<deploy-path>` **recursively** owned by the deploy user (not just the top-level directory — see step 4's ownership note)
 - [ ] `<sqlite-data-dir>` created and owned by the deploy user (SQLite db and the connection-string env file both live here, outside the deploy directory)
