@@ -8,7 +8,9 @@ Placeholders used below (replace with real values, then set the matching GitHub 
 - `<deploy-path>` — e.g. `/opt/neonpixel-web` (becomes the `VPS_DEPLOY_PATH` secret)
 - `<service-name>` — e.g. `neonpixel-web` (becomes the `VPS_SERVICE_NAME` secret, systemd unit will be `<service-name>.service`)
 - `<deploy-user>` — a dedicated, non-root user the deploy workflow SSHes in as
-- `<sqlite-db-path>` — e.g. `/var/lib/neonpixel-website/neonpixel.sqlite.db` (becomes the `VPS_DB_PATH` secret; never appears in a committed file — see step 4)
+- `<sqlite-data-dir>` — e.g. `/var/lib/neonpixel-website`, a directory outside `<deploy-path>` for the two paths below (never appears in a committed file itself — see step 4)
+- `<sqlite-db-path>` — `<sqlite-data-dir>/neonpixel.sqlite.db` (becomes the `VPS_DB_PATH` secret; never appears in a committed file — see step 4)
+- `<env-file-path>` — `<sqlite-data-dir>/app.env` (becomes the `VPS_ENV_FILE` secret; never appears in a committed file — see step 4)
 - `<ssh-port>` — the VPS's SSH port (`22` if unchanged from default; becomes the `VPS_SSH_PORT` secret)
 - `<vps-host>` — the VPS's hostname or IP (becomes the `VPS_HOST` secret)
 
@@ -52,7 +54,7 @@ ssh-keyscan -p <ssh-port> <vps-host>
 
 Paste the full output (one or more lines) as the `VPS_KNOWN_HOSTS` secret's value, verbatim.
 
-Set the remaining deploy secrets: `VPS_HOST`, `VPS_USER=<deploy-user>`, `VPS_DEPLOY_PATH=<deploy-path>`, `VPS_SERVICE_NAME=<service-name>`, `VPS_DB_PATH=<sqlite-db-path>`, `VPS_SSH_PORT=<ssh-port>`.
+Set the remaining deploy secrets: `VPS_HOST`, `VPS_USER=<deploy-user>`, `VPS_DEPLOY_PATH=<deploy-path>`, `VPS_SERVICE_NAME=<service-name>`, `VPS_DB_PATH=<sqlite-db-path>`, `VPS_ENV_FILE=<env-file-path>`, `VPS_SSH_PORT=<ssh-port>`.
 
 ## 3. Install the .NET runtime
 
@@ -80,14 +82,14 @@ sudo chown -R <deploy-user>:<deploy-user> <deploy-path>
 
 `shared/wwwroot/media` is where Umbraco's uploaded media library actually lives, persisted across every release — it's runtime state, never part of the published build output, so each fresh `releases/<id>/` wouldn't have it at all unless something points there. `deploy.yml`'s "Symlink shared media into the release" step creates `releases/<id>/wwwroot/media` as a symlink into it after every upload, so every release serves the same persistent library instead of starting empty.
 
-The SQLite database lives **outside** `<deploy-path>` entirely, at a fixed path independent of it — and that exact path is never committed to the repo, only set as the `VPS_DB_PATH` secret (step 2), e.g. `/var/lib/neonpixel-website/neonpixel.sqlite.db`:
+The SQLite database, and the env file the systemd unit reads its connection string from, both live **outside** `<deploy-path>` entirely, under `<sqlite-data-dir>` — a directory whose real value is never typed into any committed file, only set as the `VPS_DB_PATH` and `VPS_ENV_FILE` secrets (step 2) and, once, directly into the systemd unit on the VPS itself (step 5):
 
 ```bash
-sudo mkdir -p /var/lib/neonpixel-website
-sudo chown <deploy-user>:<deploy-user> /var/lib/neonpixel-website
+sudo mkdir -p <sqlite-data-dir>
+sudo chown <deploy-user>:<deploy-user> <sqlite-data-dir>
 ```
 
-`/var/lib/neonpixel-website` itself is fixed (it's infrastructure wiring baked into `deploy.yml` and the systemd unit below, not sensitive) and serves two purposes: it's where `<deploy-user>` creates the actual `.db` file on first run (assuming `VPS_DB_PATH` is set to somewhere under it, as above — it can point anywhere `<deploy-user>` can write, this is just the recommended default), and it's where `deploy.yml`'s "Write production connection string" step writes `app.env` on every deploy, resolving `VPS_DB_PATH` fresh each time (no `sudo` needed, since `<deploy-user>` owns this directory). The systemd unit's `EnvironmentFile` directive (step 5) loads that file as `ConnectionStrings__umbracoDbDSN` — ASP.NET Core's standard double-underscore env-var override of the `|DataDirectory|`-relative default in the base `appsettings.json` (that default is fine for local dev; it would otherwise nest the live db inside a release directory in production). Keeping the db physically outside `<deploy-path>` means a deploy can never touch it, no matter how the releases/current structure inside `<deploy-path>` changes — and keeping its exact path in a GitHub Actions secret rather than `appsettings.Production.json` means the production filesystem layout is never visible in the (public) repo.
+This directory serves two purposes: it's where `<deploy-user>` creates the actual `.db` file on first run (at `<sqlite-db-path>`), and it's where `deploy.yml`'s "Write production connection string" step writes the env file on every deploy (at `<env-file-path>`), resolving `VPS_DB_PATH` fresh each time (no `sudo` needed, since `<deploy-user>` owns this directory). The systemd unit's `EnvironmentFile` directive (step 5) loads that file as `ConnectionStrings__umbracoDbDSN` — ASP.NET Core's standard double-underscore env-var override of the `|DataDirectory|`-relative default in the base `appsettings.json` (that default is fine for local dev; it would otherwise nest the live db inside a release directory in production). Keeping both physically outside `<deploy-path>` means a deploy can never touch them, no matter how the releases/current structure inside `<deploy-path>` changes — and keeping their exact paths out of every committed file means the production filesystem layout is never visible in the (public) repo.
 
 ## 5. systemd unit
 
@@ -109,7 +111,7 @@ KillSignal=SIGINT
 SyslogIdentifier=<service-name>
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://localhost:5000
-EnvironmentFile=-/var/lib/neonpixel-website/app.env
+EnvironmentFile=-<env-file-path>
 
 [Install]
 WantedBy=multi-user.target
@@ -206,11 +208,11 @@ sudo systemctl restart <service-name>.service
 ## Prerequisites checklist
 
 - [ ] Deploy user created, scoped `sudo` for the restart command only
-- [ ] `VPS_DEPLOY_KEY`, `VPS_KNOWN_HOSTS`, `VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`, `VPS_DB_PATH`, `VPS_SSH_PORT` secrets set on `neonpixel-website`
+- [ ] `VPS_DEPLOY_KEY`, `VPS_KNOWN_HOSTS`, `VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_PATH`, `VPS_SERVICE_NAME`, `VPS_DB_PATH`, `VPS_ENV_FILE`, `VPS_SSH_PORT` secrets set on `neonpixel-website`
 - [ ] `THEME_REPO_PAT` secret set (see SPEC.md Assumption 19 / Open Question 19 — separate from the VPS key)
 - [ ] .NET 10 ASP.NET Core runtime installed
 - [ ] `<deploy-path>/releases` and `<deploy-path>/shared/wwwroot/media` created, and `<deploy-path>` **recursively** owned by the deploy user (not just the top-level directory — see step 4's ownership note)
-- [ ] `/var/lib/neonpixel-website` created and owned by the deploy user (SQLite db lives here, outside the deploy directory)
+- [ ] `<sqlite-data-dir>` created and owned by the deploy user (SQLite db and the connection-string env file both live here, outside the deploy directory)
 - [ ] systemd unit installed and enabled (not started — no app there yet), `WorkingDirectory`/`ExecStart` pointing at `<deploy-path>/current`
 - [ ] nginx site config installed, `nginx -t` passes
 - [ ] DNS for `neonpixel.eu` points at this VPS
