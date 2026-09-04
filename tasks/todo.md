@@ -52,6 +52,9 @@ Full detail (descriptions, acceptance criteria, verification, files) is in `task
 - [x] Dependabot configured (2026-09-03), per user request: daily version-update checks at midnight UTC for both `nuget` (`src/NeonPixel.Web`) and `github-actions` ecosystems (`.github/dependabot.yml`). Vulnerability alerts (Dependabot security scanning) also enabled repo-wide via the API -- were off entirely before this.
 - [x] Fixed 2 SonarCloud vulnerabilities in `deploy.yml` (2026-09-03, `githubactions:S7636` "Avoid expanding secrets in a run block", MEDIUM severity): the "Set up SSH" step expanded `${{ secrets.VPS_DEPLOY_KEY }}`/`${{ secrets.VPS_KNOWN_HOSTS }}` directly into its shell script text instead of routing through `env:` first, unlike every other step in the file. Fixed to match the established pattern.
 
+## Post-launch: additional domains
+- [ ] `neonpixel.nl` → `neonpixel.eu` redirect, per user request. Documented as a repeatable pattern in `DEPLOYMENT.md` ("Redirecting additional domains to neonpixel.eu"): nginx `return 301` block preserving path + certbot, cloned per domain. `neonpixel.nl` currently has no DNS records at all (checked 2026-09-03) -- needs the user to point its `A` record at the VPS (`85.17.61.220`) before the nginx/certbot steps can run.
+
 ## Checkpoint: Complete
 - [x] All Success Criteria in `SPEC.md` met
 - [x] Production site reachable over HTTPS, backoffice usable, 404 page working
