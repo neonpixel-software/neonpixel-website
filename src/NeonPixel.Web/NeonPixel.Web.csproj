@@ -39,7 +39,10 @@
     local dev and production, no runtime path computation needed.
   -->
   <ItemGroup Condition="Exists('..\..\theme\wwwroot')">
-    <Content Include="..\..\theme\wwwroot\**\*" LinkBase="wwwroot" />
+    <!-- scss/** is SCSS source (see wwwroot/scss/main.scss), compiled to the
+         .css it sits alongside via `npm run build` in the theme repo — never
+         served itself, so excluded from what ships to production. -->
+    <Content Include="..\..\theme\wwwroot\**\*" Exclude="..\..\theme\wwwroot\scss\**\*" LinkBase="wwwroot" />
   </ItemGroup>
 
   <PropertyGroup>
