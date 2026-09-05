@@ -61,6 +61,9 @@ Full detail (descriptions, acceptance criteria, verification, files) is in `task
 ## Post-launch: build warnings
 - [x] Per user request, analyzed the 12 warnings the deploy pipeline reported: 2 were GitHub Actions' own Node.js 20 deprecation notices (environment-level, not our code); the other 10 were the same `CS8604` nullable-reference warning at 8 distinct locations (`homePage`/`contactPage` from `.FirstOrDefault()`, and `Model` on the non-generic `UmbracoViewPage`, all nullable). Fixed with `@(x?.Url(culture) ?? "/")` rather than a null-forgiving `!` -- genuinely safer (no `NullReferenceException` risk sitewide if Home/Contact were ever unpublished), not just noise suppression. Build now reports 0 warnings.
 
+## Post-launch: Dependabot CI fix
+- [x] All 4 open Dependabot PRs (github-actions bumps) failed `build-and-test` with `Input required and not supplied: token` -- structural, not per-PR: Dependabot-triggered runs never get custom secrets (GitHub's own policy, so a compromised dependency bump can't exfiltrate them), so `THEME_REPO_PAT` resolves empty, and newer `actions/checkout` versions hard-fail on that rather than silently falling back like older ones did. Per user's choice, `ci.yml`'s checkout step now skips the private submodule entirely for Dependabot-actor runs (`github.token` still works fine for a plain checkout of this public repo) rather than granting Dependabot repo-wide secret access -- `theme/`'s existing `Exists()` guards already make a submodule-less build succeed cleanly.
+
 ## Checkpoint: Complete
 - [x] All Success Criteria in `SPEC.md` met
 - [x] Production site reachable over HTTPS, backoffice usable, 404 page working
