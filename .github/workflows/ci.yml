@@ -15,11 +15,19 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
+      # Dependabot-triggered runs never get custom secrets (GitHub's own policy, so a
+      # compromised/malicious dependency bump can't exfiltrate them) -- THEME_REPO_PAT
+      # resolves empty there, which newer actions/checkout versions treat as "required
+      # input not supplied" and hard-fail on, rather than the older silent fallback.
+      # Skips the private submodule for those runs instead (github.token still works
+      # fine for a plain checkout of this, the public, repo) -- theme/'s Exists() guards
+      # in NeonPixel.Web.csproj/Program.cs already make a submodule-less build succeed
+      # cleanly, just without theme content, same as any clone without submodule access.
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true
-          token: ${{ secrets.THEME_REPO_PAT }}
+          submodules: ${{ github.actor != 'dependabot[bot]' }}
+          token: ${{ github.actor == 'dependabot[bot]' && github.token || secrets.THEME_REPO_PAT }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
