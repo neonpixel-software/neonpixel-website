@@ -24,7 +24,7 @@ jobs:
       # in NeonPixel.Web.csproj/Program.cs already make a submodule-less build succeed
       # cleanly, just without theme content, same as any clone without submodule access.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: ${{ github.actor != 'dependabot[bot]' }}
           token: ${{ github.actor == 'dependabot[bot]' && github.token || secrets.THEME_REPO_PAT }}
