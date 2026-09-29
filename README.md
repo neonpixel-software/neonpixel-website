@@ -4,6 +4,16 @@ Source for [neonpixel.eu](https://neonpixel.eu): an Umbraco 18 CMS site on .NET 
 
 > ⚠️ **Disclaimer:** This repository was built by three LLMs (large language models). The code was written by language models, but it holds the same standard as anything else here: it has to pass CI, the test suites, and the SonarCloud quality gate before it lands.
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=neonpixel-software_neonpixel-website&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=neonpixel-software_neonpixel-website)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=neonpixel-software_neonpixel-website&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=neonpixel-software_neonpixel-website)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=neonpixel-software_neonpixel-website&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=neonpixel-software_neonpixel-website)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=neonpixel-software_neonpixel-website&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=neonpixel-software_neonpixel-website)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=neonpixel-software_neonpixel-website&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=neonpixel-software_neonpixel-website)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=neonpixel-software_neonpixel-website&metric=bugs)](https://sonarcloud.io/summary/new_code?id=neonpixel-software_neonpixel-website)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=neonpixel-software_neonpixel-website&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=neonpixel-software_neonpixel-website)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=neonpixel-software_neonpixel-website&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=neonpixel-software_neonpixel-website)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=neonpixel-software_neonpixel-website&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=neonpixel-software_neonpixel-website)
+
 Editors manage all content through the Umbraco backoffice. Content and schema move between environments via [uSync](https://jumoo.co.uk/usync/) files committed to this repo — the SQLite database itself is never committed.
 
 ## Tech stack
