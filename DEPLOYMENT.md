@@ -256,6 +256,8 @@ Already set up and working: the **SonarQube Cloud** GitHub App is installed on t
 
 `SonarCloud Code Analysis` is a required status check on `main` (added 2026-09-03, once PR #27 showed it passing).
 
+The `theme/` submodule is excluded from analysis via `.sonarcloud.properties` (`sonar.exclusions=theme/**`). It's a vendored third-party template, and once SonarCloud started scanning it (after the PR #41 merge, 2026-09-29) it added ~5,200 issues and ~10% duplication, turning main's quality gate red while PR checks stayed green (a PR analysis only covers the lines that PR changed).
+
 If the GitHub App integration is ever removed and needs re-adding: install it from [sonarcloud.io](https://sonarcloud.io) → the org's GitHub App settings, or `github.com/organizations/neonpixel-software/settings/installations`.
 
 ## Prerequisites checklist
