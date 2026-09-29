@@ -60,3 +60,6 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Local secrets/overrides -- template is src/NeonPixel.Web/appsettings.Local.json.example
+appsettings.Local.json

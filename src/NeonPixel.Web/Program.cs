@@ -3,6 +3,15 @@ using Microsoft.Extensions.FileProviders;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+// Local secrets and machine-specific overrides (gitignored; template at
+// appsettings.Local.json.example). Development only -- production gets its settings from
+// the systemd EnvironmentFile (see DEPLOYMENT.md), and a stray Local file on the VPS must
+// never be able to override those.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+}
+
 // The purchased front-end template's license forbids redistribution, so its converted
 // Razor views and static assets live in a private companion repo (neonpixel-theme),
 // pulled in here as a git submodule at theme/ (a sibling of src/NeonPixel.Web) rather
