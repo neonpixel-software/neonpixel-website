@@ -2,6 +2,8 @@
 
 Source for [neonpixel.eu](https://neonpixel.eu): an Umbraco 18 CMS site on .NET 10, self-hosted on an Ubuntu VPS behind nginx + systemd.
 
+> ⚠️ **Disclaimer:** This repository was built by three LLMs (large language models). The code was written by language models, but it holds the same standard as anything else here: it has to pass CI, the test suites, and the SonarCloud quality gate before it lands.
+
 Editors manage all content through the Umbraco backoffice. Content and schema move between environments via [uSync](https://jumoo.co.uk/usync/) files committed to this repo — the SQLite database itself is never committed.
 
 ## Tech stack
