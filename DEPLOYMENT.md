@@ -181,6 +181,39 @@ sudo certbot --nginx -d neonpixel.eu
 
 Certbot edits the nginx site config in place to add the TLS `server` block and a redirect from port 80. Confirm auto-renewal is set up: `sudo certbot renew --dry-run`.
 
+### Restrict the backoffice to known IPs
+
+Without this, the backoffice login at `/umbraco` is reachable from the whole internet. The public site doesn't need anything under `/umbraco` (views are server-rendered, media is served from `/media`, and the Delivery API isn't enabled), so the whole prefix can be allowlisted. It must be the whole prefix, not just the login page: the backoffice itself calls `/umbraco/management/api/...`.
+
+Add this block inside the **HTTPS** `server` block certbot created (the one with `listen 443 ssl`), next to the existing `location /`. The port-80 block only redirects to HTTPS, so it needs nothing.
+
+```nginx
+    location ^~ /umbraco {
+        allow <your-ip>;       # one line per allowed IPv4/IPv6 address or CIDR range
+        deny  all;
+
+        proxy_pass         http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header    Upgrade $http_upgrade;
+        proxy_set_header    Connection keep-alive;
+        proxy_set_header    Host $host;
+        proxy_cache_bypass  $http_upgrade;
+        proxy_set_header    X-Real-IP $remote_addr;
+        proxy_set_header    X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header    X-Forwarded-Proto $scheme;
+        client_max_body_size 50M;
+    }
+```
+
+`^~` makes this prefix win over any regex `location`, and the proxy settings have to be repeated because nginx doesn't inherit them from `location /`. Keep the allowlisted IPs out of this repo, since it's public: they only live in the config on the VPS.
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+curl -s -o /dev/null -w '%{http_code}\n' https://neonpixel.eu/umbraco   # 403 from a non-allowed IP; 200 from yours
+```
+
+If your home IP changes, locked out is the failure mode: SSH in and update the `allow` line. For a dynamic IP, allowlist a VPN's fixed exit IP instead.
+
 ## 8. First deploy
 
 With everything above in place, a push to `main` (see `SPEC.md`'s CI/CD section) runs `deploy.yml`, which:
@@ -274,3 +307,4 @@ If the GitHub App integration is ever removed and needs re-adding: install it fr
 - [ ] nginx site config installed, `nginx -t` passes
 - [ ] DNS for `neonpixel.eu` points at this VPS
 - [ ] certbot HTTPS issued and auto-renewal confirmed
+- [ ] `/umbraco` restricted to allowlisted IPs in the HTTPS nginx server block (see "Restrict the backoffice to known IPs")
