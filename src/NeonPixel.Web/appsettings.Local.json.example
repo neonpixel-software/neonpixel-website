@@ -1,0 +1,25 @@
+{
+  // Template for appsettings.Local.json -- copy it next to this file:
+  //   cp appsettings.Local.json.example appsettings.Local.json
+  // appsettings.Local.json is gitignored and only loaded in Development (see Program.cs),
+  // so it's the place for local secrets and machine-specific overrides. This repo is
+  // public: never put real values in this template. Delete any section you don't need.
+  "$schema": "appsettings-schema.json",
+  "ConnectionStrings": {
+    // Optional: point at a different local SQLite file. The default (appsettings.json)
+    // is src/NeonPixel.Web/umbraco/Data/neonpixel.sqlite.db.
+    "umbracoDbDSN": "Data Source=|DataDirectory|/<your-db-name>.sqlite.db;Cache=Shared;Foreign Keys=True;Pooling=True"
+  },
+  "Umbraco": {
+    "CMS": {
+      "Unattended": {
+        // Set to true to skip the install wizard on a fresh database and create the
+        // admin account below automatically. Only applies to an empty database.
+        "InstallUnattended": false,
+        "UnattendedUserName": "<your-name>",
+        "UnattendedUserEmail": "<you@example.com>",
+        "UnattendedUserPassword": "<a-strong-local-password>"
+      }
+    }
+  }
+}

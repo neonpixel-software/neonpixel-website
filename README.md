@@ -15,7 +15,7 @@ Editors manage all content through the Umbraco backoffice. Content and schema mo
 ## Repository layout
 
 ```
-src/NeonPixel.Web/       Umbraco site (Program.cs, appsettings*, Views/, uSync/)
+src/NeonPixel.Web/       Umbraco site (Program.cs, appsettings*, Views/, uSync/, appsettings.Local.json.example)
 theme/                   Git submodule → private neonpixel-theme repo (Views/ + wwwroot/)
 .github/workflows/       ci.yml (PR build + test), deploy.yml (deploy on push to main)
 docs/plans/              Design notes
@@ -61,6 +61,16 @@ dotnet run --project src/NeonPixel.Web
 ```
 
 The site runs at `https://localhost:44313`. On first run, Umbraco walks you through creating an admin account. uSync then imports the committed content and schema. The backoffice is at `/umbraco`.
+
+### Local settings
+
+Put local secrets and machine-specific overrides in `src/NeonPixel.Web/appsettings.Local.json`. It's gitignored and only loaded in Development. Start from the template:
+
+```sh
+cp src/NeonPixel.Web/appsettings.Local.json.example src/NeonPixel.Web/appsettings.Local.json
+```
+
+The template has placeholders for a custom SQLite file and for Umbraco's unattended install. Set `InstallUnattended` to `true` and fill in the admin details to skip the install wizard on a fresh database. Delete any section you don't need.
 
 ## Languages and routing
 
