@@ -185,13 +185,22 @@ Certbot edits the nginx site config in place to add the TLS `server` block and a
 
 Without this, the backoffice login at `/umbraco` is reachable from the whole internet. The public site doesn't need anything under `/umbraco` (views are server-rendered, media is served from `/media`, and the Delivery API isn't enabled), so the whole prefix can be allowlisted. It must be the whole prefix, not just the login page: the backoffice itself calls `/umbraco/management/api/...`.
 
-Add this block inside the **HTTPS** `server` block certbot created (the one with `listen 443 ssl`), next to the existing `location /`. The port-80 block only redirects to HTTPS, so it needs nothing.
+First, add this `map` at the top of the site config file, **outside** any `server { }` block (nginx only allows `map` at the `http` level, which is where files in `sites-enabled/` are included). It picks the 404 page's language from the visitor's browser: English if English is their first language, otherwise Dutch, the site's default.
+
+```nginx
+map $http_accept_language $notfound_lang {
+    default  nl;
+    ~^en     en;
+}
+```
+
+Then add this block inside the **HTTPS** `server` block certbot created (the one with `listen 443 ssl`), next to the existing `location /`. The port-80 block only redirects to HTTPS, so it needs nothing.
 
 ```nginx
     location ^~ /umbraco {
         allow <your-ip>;       # one line per allowed IPv4/IPv6 address or CIDR range
         deny  all;
-        error_page 403 =404 /nl/__not-found;   # blocked visitors get the site's own 404 page instead of nginx's
+        error_page 403 =404 /$notfound_lang/__not-found;   # blocked visitors get the site's own 404 page instead of nginx's
 
         proxy_pass         http://localhost:5000;
         proxy_http_version 1.1;
@@ -206,7 +215,7 @@ Add this block inside the **HTTPS** `server` block certbot created (the one with
     }
 ```
 
-`^~` makes this prefix win over any regex `location`, and the proxy settings have to be repeated because nginx doesn't inherit them from `location /`. The `error_page` line hands a denied request internally to `/nl/__not-found`, a path that never exists, which `location /` proxies to Umbraco, so it renders the site's styled Dutch 404 page. The address bar keeps showing `/umbraco`, and the status is a plain 404 rather than 403, so outsiders can't tell there's a backoffice behind it. Keep the allowlisted IPs out of this repo, since it's public: they only live in the config on the VPS.
+`^~` makes this prefix win over any regex `location`, and the proxy settings have to be repeated because nginx doesn't inherit them from `location /`. The `error_page` line hands a denied request internally to `/nl/__not-found` or `/en/__not-found`, a path that never exists, which `location /` proxies to Umbraco, so it renders the site's styled 404 page in that language. The address bar keeps showing `/umbraco`, and the status is a plain 404 rather than 403, so outsiders can't tell there's a backoffice behind it. Keep the allowlisted IPs out of this repo, since it's public: they only live in the config on the VPS.
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
