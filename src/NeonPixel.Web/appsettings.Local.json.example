@@ -15,6 +15,7 @@
       "Unattended": {
         // Set to true to skip the install wizard on a fresh database and create the
         // admin account below automatically. Only applies to an empty database.
+        // Replace every <...> placeholder first, or Umbraco installs with them literally.
         "InstallUnattended": false,
         "UnattendedUserName": "<your-name>",
         "UnattendedUserEmail": "<you@example.com>",

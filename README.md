@@ -70,7 +70,9 @@ Put local secrets and machine-specific overrides in `src/NeonPixel.Web/appsettin
 cp src/NeonPixel.Web/appsettings.Local.json.example src/NeonPixel.Web/appsettings.Local.json
 ```
 
-The template has placeholders for a custom SQLite file and for Umbraco's unattended install. Set `InstallUnattended` to `true` and fill in the admin details to skip the install wizard on a fresh database. Delete any section you don't need.
+The template has placeholders for a custom SQLite file and for Umbraco's unattended install. Set `InstallUnattended` to `true` and replace every `<...>` placeholder with real admin details to skip the install wizard on a fresh database. Delete any section you don't need.
+
+The file is added last, so any key it sets overrides the same key from environment variables and command-line arguments too. If an env var seems to be ignored in Development, check this file first.
 
 ## Languages and routing
 
