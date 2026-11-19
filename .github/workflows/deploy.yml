@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
 
+# Least-privilege GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions): only
+# the checkout needs it. Artifact upload/download within the same run uses the
+# runner's own ACTIONS_RUNTIME_TOKEN, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   build-test-publish:
     runs-on: ubuntu-latest
@@ -41,6 +47,8 @@ jobs:
   deploy:
     needs: build-test-publish
     runs-on: ubuntu-latest
+    # Never touches the repo -- everything goes over SSH with its own secrets.
+    permissions: {}
     steps:
       - name: Download publish output
         uses: actions/download-artifact@v8

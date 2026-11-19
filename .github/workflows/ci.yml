@@ -11,6 +11,12 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions): the job
+# only checks out this repo -- the private theme submodule uses THEME_REPO_PAT, not
+# this token.
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
